@@ -15,6 +15,8 @@ follow these steps.
 
 # Core Language and Evaluator
 
+This section's git tag is *core-language*.
+
 Section eight of *Sets of Scopes* has a model based on:
 
   * *Macros that Work Together — Compile-Time Bindings, Partial
