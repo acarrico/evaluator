@@ -8,6 +8,8 @@
  AstEnv-scan
  )
 
+(define Val? (make-predicate Val))
+
 ;; scanner
 ;;
 ;; NOTE: the #%name syntax reads as a symbol in Racket, but I'm
@@ -39,6 +41,8 @@
      (if (andmap symbol? vars)
          (Fun (map Var vars) (Ast-scan body))
          (error "this won't happen")))
+    ;; Scan Stx:
+    ((list (primitive 'stx) stx ctx) (Stx (scan stx) (scan ctx)))
     ;; Scan PrimAst:
     ((list (primitive 'ast) ast) (PrimAst (Ast-scan ast)))
     ;; Scan Seq:

@@ -86,3 +86,18 @@ early step:
 (check-Ast-eval '((#%val (#%closure (#%fun () x) ((x 5)))))
                 5)
 ```
+
+# Syntax Objects
+
+This section's git tag is *syntax-objects*.
+
+Carrying on with *Macros that Work Together* section 3.2,
+syntax-objects are the representation to be manipulated by macros and
+parsed into the core language for evaluation.
+
+At this stage, a syntax-object is just a value with context, and the
+context has not been defined, so it has type **Val** for now. I think
+that some context will eventually need to be applied deeply or pushed
+down lazily (wraps in Dybvig), but I'll wait and see how that fits
+into *Macros that Work Together* as it comes up in the paper.
+

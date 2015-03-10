@@ -18,6 +18,8 @@
               (Seq (list (Sym 'x) (Sym 'y) (Sym 'z))))
 (check-equal? (scan '#%cons) (PrimOp 'cons))
 (check-equal? (scan 1) 1)
+(check-equal? (scan '(#%stx 2 context))
+              (Stx 2 (Sym 'context)))
 
 ;; Ast Evaluator:
 (define ast-env (AstEnv-scan '((cons #%cons)
@@ -25,7 +27,8 @@
                                (cdr #%cdr)
                                (list-ref #%list-ref)
                                (list #%list)
-                               )))
+                               (stx-e #%stx-e)
+                               (mk-stx #%mk-stx))))
 
 (define (check-Ast-eval i o)
   (check-equal? (Ast-eval (Ast-scan i) ast-env) (scan o)))
@@ -52,3 +55,11 @@
                 5)
 (check-Ast-eval '((#%val (#%fun (y) ((#%val (#%fun (x) y)) 0))) 1)
                 1)
+
+;; syntax-objects:
+
+(check-Ast-eval '(mk-stx 1 (#%val (#%stx 2 context)))
+                '(#%stx 1 context))
+
+(check-Ast-eval '(stx-e (mk-stx 1 (#%val (#%stx 2 context))))
+                '1)

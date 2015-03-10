@@ -5,6 +5,7 @@
  Val (struct-out Fun) (struct-out Seq)
  Atom (struct-out Sym) (struct-out PrimOp)
  (struct-out PrimAst) (struct-out Closure)
+ (struct-out Stx) Ctx
  AstEnv
  Ast-eval)
 
@@ -14,11 +15,14 @@
 (define-type Val (U Fun Seq Atom))
 (struct Fun ((vars : (Listof Var)) (body : Ast)) #:transparent)
 (struct Seq ((elems : (Listof Val))) #:transparent)
-(define-type Atom (U Sym PrimOp PrimAst Closure Integer))
+(define-type Atom (U Sym PrimOp PrimAst Closure Integer Stx))
 (struct Sym ((name : Symbol)) #:transparent)
 (struct PrimOp ((name : Symbol)) #:transparent)
 (struct PrimAst ((ast : Ast)) #:transparent)
 (struct Closure ((fun : Fun) (env : AstEnv)) #:transparent)
+(struct Stx ((val : Val) (ctx : Ctx)) #:transparent)
+(define-type Ctx Val)
+
 (define-type AstEnv (Listof (List Var Val)))
 
 (define (Ast-eval (ast : Ast) (env : AstEnv)) : Val
@@ -64,5 +68,11 @@
      (list-ref elems index))
     (((PrimOp 'list) _)
      (Seq args))
+    (((PrimOp 'stx-e) (list (Stx val ctx)))
+     val)
+    ;; NOTE: the model allows Seq and Atom here, but not Fun, I've got
+    ;; Funs and Closures as values, so I'll just let anything go:
+    (((PrimOp 'mk-stx) (list val (Stx _ ctx)))
+     (Stx val ctx))
     ((_ _)
      (error "Prim-eval bad primitive form" op args))))
