@@ -1,4 +1,6 @@
-#lang typed/racket
+#lang typed/racket/base
+
+(require racket/match)
 
 (provide
  Ast (struct-out Var) (struct-out App)

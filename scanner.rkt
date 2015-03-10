@@ -1,6 +1,8 @@
-#lang typed/racket
+#lang typed/racket/base
 
-(require "core-lang.rkt")
+(require (for-syntax typed/racket/base)
+         racket/match
+         "core-lang.rkt")
 
 (provide
  scan
