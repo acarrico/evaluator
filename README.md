@@ -101,3 +101,19 @@ that some context will eventually need to be applied deeply or pushed
 down lazily (wraps in Dybvig), but I'll wait and see how that fits
 into *Macros that Work Together* as it comes up in the paper.
 
+The scanner gets a clause to read syntax-objects:
+
+```
+(check-equal? (scan '(#%stx 2 context)) (Stx 2 (Sym 'context)))
+```
+
+The primitive evaluator gets two new clauses **stx-e** and **mk-stx**
+as in the paper:
+
+```
+(check-Ast-eval '(mk-stx 1 (#%val (#%stx 2 context)))
+                '(#%stx 1 context))
+
+(check-Ast-eval '(stx-e (mk-stx 1 (#%val (#%stx 2 context))))
+                '1)
+```
