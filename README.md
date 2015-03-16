@@ -13,7 +13,7 @@ expansion for Racket*, by Matthew Flatt.
 I'm going step by step, so you may have to rewind the repository to
 follow these steps.
 
-# Core Language and Evaluator
+# Day 1 — Core Language and Evaluator
 
 This section's git tag is *core-language*.
 
@@ -87,7 +87,7 @@ early step:
                 5)
 ```
 
-# Syntax Objects
+# Day 2 — Syntax Objects
 
 This section's git tag is *syntax-objects*.
 
