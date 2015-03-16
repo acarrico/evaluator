@@ -117,3 +117,8 @@ as in the paper:
 (check-Ast-eval '(stx-e (mk-stx 1 (#%val (#%stx 2 context))))
                 '1)
 ```
+
+**Update:** the PrimOp *mk-stx* originally accepted *(Seq (listof
+  Val))* but now requires *(Seq (listof Stx))*. For now, this follows
+  the paper, but the paper also mentions that this is relaxed in
+  Racket.

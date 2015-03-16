@@ -22,6 +22,9 @@
 (struct PrimOp ((name : Symbol)) #:transparent)
 (struct PrimAst ((ast : Ast)) #:transparent)
 (struct Closure ((fun : Fun) (env : AstEnv)) #:transparent)
+;; ISSUE: should be (val : (U (Seq ((elems : (Listof Stx)))) Atom))
+;; but Seq isn't polymorphic, so I don't think there is a way to
+;; express that:
 (struct Stx ((val : Val) (ctx : Ctx)) #:transparent)
 (define-type Ctx Val)
 
@@ -72,9 +75,9 @@
      (Seq args))
     (((PrimOp 'stx-e) (list (Stx val ctx)))
      val)
-    ;; NOTE: the model allows Seq and Atom here, but not Fun, I've got
-    ;; Funs and Closures as values, so I'll just let anything go:
-    (((PrimOp 'mk-stx) (list val (Stx _ ctx)))
+    (((PrimOp 'mk-stx) (list (and val (Seq (list (struct Stx _) ...))) (Stx _ ctx)))
+     (Stx val ctx))
+    (((PrimOp 'mk-stx) (list (? (make-predicate Atom) val) (Stx _ ctx)))
      (Stx val ctx))
     ((_ _)
      (error "Prim-eval bad primitive form" op args))))
