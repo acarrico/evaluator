@@ -13,6 +13,9 @@ expansion for Racket*, by Matthew Flatt.
 I'm going step by step, so you may have to rewind the repository to
 follow these steps.
 
+**Update:** It looks like there is another implementation out there,
+  [sweet.js](https://github.com/mozilla/sweet.js/pull/461).
+
 # Day 1 — Core Language and Evaluator
 
 This section's git tag is *core-language*.
