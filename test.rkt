@@ -1,7 +1,6 @@
 #lang typed/racket/base
 
-(require "core-lang.rkt")
-(require "scanner.rkt")
+(require "core-lang.rkt" "scanner.rkt" "parser.rkt")
 
 (require typed/rackunit)
 
@@ -63,3 +62,26 @@
 
 (check-Ast-eval '(stx-e (mk-stx 1 (#%val (#%stx 2 context))))
                 '1)
+
+;; parser
+
+(check-equal? (parse (Stx-scan 'x))
+              (Var 'x))
+
+(check-equal? (parse (Stx-scan '(x y z)))
+              (App (list (Var 'x) (Var 'y) (Var 'z))))
+
+(check-equal? (parse (Stx-scan '(lambda (x y) (x y))))
+              (Fun (list (Var 'x) (Var 'y)) (App (list (Var 'x) (Var 'y)))))
+
+(check-equal? (parse (Stx-scan '(lambda (x y) (x y))))
+              (scan '(#%fun (x y) (x y))))
+
+(check-equal? (parse (Stx-scan '(quote 1)))
+              1)
+
+(check-equal? (parse (Stx-scan '(quote (x y z))))
+              (Seq (list (Sym 'x) (Sym 'y) (Sym 'z))))
+
+(check-equal? (parse (Stx-scan '(syntax (x y z))))
+              (Stx-scan '(x y z)))

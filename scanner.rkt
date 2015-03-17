@@ -8,6 +8,8 @@
  scan
  Ast-scan
  AstEnv-scan
+ Stx-scan
+ empty-context
  )
 
 (define Val? (make-predicate Val))
@@ -76,3 +78,15 @@
        (if (symbol? name)
            (list (Var name) (scan val))
            (error "typed racket doesn't do match right yet"))))))
+
+(define empty-context (Sym 'context))
+
+(define (Stx-scan (i : Any)) : Stx
+  (match i
+    ;; Scan Seq:
+    ((list subs ...) (Stx (Seq (map Stx-scan subs)) empty-context))
+    ;; Scan Sym
+    ((? symbol? name) (Stx (Sym name) empty-context))
+    ;; Scan Integer
+    ((? (make-predicate Integer) i) (Stx i empty-context))
+    (_ (error "Stx-scan: unrecognized syntax" i))))

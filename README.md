@@ -122,3 +122,55 @@ as in the paper:
   Val))* but now requires *(Seq (listof Stx))*. For now, this follows
   the paper, but the paper also mentions that this is relaxed in
   Racket.
+
+# Days 3, 4, 5, 6 :( — Parser
+
+This section's git tag is *parser*.
+
+As with the previous sections, it took one sitting to write the
+parser, however it took several more sittings to get decent looking
+code to typecheck. I knew I should get this right, because the parser
+is very similar to the expander. The problem is that currently,
+*match* doesn't always cooperate with Typed Racket. I found a bug
+report (14900 at bugs.racket-lang.org) which gave me the clue to try
+*#{x : X}* style binding annotations in match patterns. This resolved
+my issues, and everything fell into place.
+
+As mentioned in the introduction, *Macros that Work Together* defines
+*parsing* as converting a fully expanded syntax-object into an AST.
+The paper shows both *symbol-driven* and *identifier-driven* parsers.
+The former compares identifiers by name, the later *resolve*s (will
+resolve) identifiers by their (as yet undefined) lexical context. I
+skipped directly to the identifier-driven parser.
+
+The value scanner can be used to test the parser, but it is tedious.
+To create syntax-objects easily, I've implemented another scanner,
+*Stx-scan*. It is very simple, since it has just three cases,
+sequence, symbol, and integer. To summarize:
+
+  * *scan* converts a Racket value (type Any) to a
+  value (type Val)
+  * *Stx-scan* converts a Racket value (type Any) to a syntax-object
+  (type Stx)
+  * *parse* converts a syntax-object (type Stx) to an AST (type Ast)
+
+Testing looks like this:
+
+```
+(check-equal? (parse (Stx-scan '(lambda (x y) (x y))))
+              (Fun (list (Var 'x) (Var 'y)) (App (list (Var 'x) (Var 'y)))))
+```
+
+The value scanner can also be used:
+
+```
+(check-equal? (parse (Stx-scan '(lambda (x y) (x y))))
+              (scan '(#%fun (x y) (x y))))
+```
+
+Or even the syntax-object scanner:
+
+```
+(check-equal? (parse (Stx-scan '(syntax (x y z))))
+              (Stx-scan '(x y z)))
+```
