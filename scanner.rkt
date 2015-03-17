@@ -39,12 +39,8 @@
        (error "scan: expected a fun in closure" fun))
      (Closure f (AstEnv-scan env)))
     ;; Scan Fun:
-    ((list (primitive 'fun) (list (? symbol? vars) ...) body)
-     ;; ISSUE: typed Racket doesn't recognize that all the vars are
-     ;; symbols here.
-     (if (andmap symbol? vars)
-         (Fun (map Var vars) (Ast-scan body))
-         (error "this won't happen")))
+    ((list (primitive 'fun) (list (? symbol? #{vars : (Listof Symbol)}) ...) body)
+     (Fun (map Var vars) (Ast-scan body)))
     ;; Scan Stx:
     ((list (primitive 'stx) stx ctx) (Stx (scan stx) (scan ctx)))
     ;; Scan PrimAst:
@@ -72,12 +68,10 @@
 
 (define (AstEnv-scan (i : Any)) : AstEnv
   (match i
-    ((list (list (? symbol? names) vals) ...)
+    ((list (list (? symbol? #{names : (Listof Symbol)}) vals) ...)
      (for/list ((name names)
                 (val vals))
-       (if (symbol? name)
-           (list (Var name) (scan val))
-           (error "typed racket doesn't do match right yet"))))))
+       (list (Var name) (scan val))))))
 
 (define empty-context (Sym 'context))
 
