@@ -9,6 +9,7 @@
  (struct-out PrimAst) (struct-out Closure)
  (struct-out Stx) Ctx
  AstEnv
+ empty-context
  Ast-eval)
 
 (define-type Ast (U Var App Val))
@@ -27,6 +28,8 @@
 ;; express that:
 (struct Stx ((val : Val) (ctx : Ctx)) #:transparent)
 (define-type Ctx Val)
+
+(define empty-context (Sym 'context))
 
 (define-type AstEnv (Listof (List Var Val)))
 

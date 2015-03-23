@@ -9,7 +9,6 @@
  Ast-scan
  AstEnv-scan
  Stx-scan
- empty-context
  )
 
 (define Val? (make-predicate Val))
@@ -72,8 +71,6 @@
      (for/list ((name names)
                 (val vals))
        (list (Var name) (scan val))))))
-
-(define empty-context (Sym 'context))
 
 (define (Stx-scan (i : Any)) : Stx
   (match i
