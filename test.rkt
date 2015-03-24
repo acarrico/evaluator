@@ -1,6 +1,6 @@
 #lang typed/racket/base
 
-(require "core-lang.rkt" "scanner.rkt" "parser.rkt")
+(require "core-lang.rkt" "scanner.rkt" "parser.rkt" "expander.rkt")
 
 (require typed/rackunit)
 
@@ -85,3 +85,73 @@
 
 (check-equal? (parse (Stx-scan '(syntax (x y z))))
               (Stx-scan '(x y z)))
+
+;; expander
+
+(define initial-state (CompState 0))
+(define expand-env (list (list 'lambda (TransformBinding fun-transform))
+                         (list 'quote (TransformBinding quote-transform))
+                         (list 'syntax (TransformBinding quote-transform))))
+
+(define (check-expand i o)
+  (define-values (state expanded) (expand initial-state expand-env (Stx-scan i)))
+  (check-equal? (parse expanded) o))
+
+(define (check-re-expand i o)
+  (define-values (state expanded) (expand initial-state expand-env (Stx-scan i)))
+  (define-values (state* expanded*) (expand state expand-env expanded))
+  (check-equal? (parse expanded*) o))
+
+(check-expand '(lambda (x) x)
+              (Fun (list (Var '#%0-x)) (Var '#%0-x)))
+
+(check-expand '(lambda (lambda) lambda)
+              (Fun (list (Var '#%0-lambda)) (Var '#%0-lambda)))
+
+(check-expand '(lambda (x) (lambda (x) x))
+              (Fun (list (Var '#%0-x)) (Fun (list (Var '#%1-x)) (Var '#%1-x))))
+
+(check-expand '(lambda (x) (lambda (y) (x y)))
+              (Fun (list (Var '#%0-x))
+                   (Fun (list (Var '#%1-y))
+                        (App (list (Var '#%0-x) (Var '#%1-y))))))
+
+(check-expand '(quote x)
+              (Sym 'x))
+
+(check-expand '(syntax x)
+              (Stx (Sym 'x) empty-context))
+
+(check-expand '(lambda (lambda) 'lambda)
+              (Fun (list (Var '#%0-lambda)) (Sym 'lambda)))
+
+(check-expand '(lambda (lambda) #'lambda)
+              (Fun (list (Var '#%0-lambda)) (Stx (Sym 'lambda) empty-context)))
+
+;; test idempotence:
+
+(check-re-expand '(lambda (x) x)
+              (Fun (list (Var '#%1-x)) (Var '#%1-x)))
+
+(check-re-expand '(lambda (lambda) lambda)
+                 (Fun (list (Var '#%1-lambda)) (Var '#%1-lambda)))
+
+(check-re-expand '(lambda (x) (lambda (x) x))
+                 (Fun (list (Var '#%2-x)) (Fun (list (Var '#%3-x)) (Var '#%3-x))))
+
+(check-re-expand '(lambda (x) (lambda (y) (x y)))
+                 (Fun (list (Var '#%2-x))
+                      (Fun (list (Var '#%3-y))
+                           (App (list (Var '#%2-x) (Var '#%3-y))))))
+
+(check-re-expand '(quote x)
+                 (Sym 'x))
+
+(check-re-expand '(syntax x)
+                 (Stx (Sym 'x) empty-context))
+
+(check-re-expand '(lambda (lambda) 'lambda)
+                 (Fun (list (Var '#%1-lambda)) (Sym 'lambda)))
+
+(check-re-expand '(lambda (lambda) #'lambda)
+                 (Fun (list (Var '#%1-lambda)) (Stx (Sym 'lambda) empty-context)))

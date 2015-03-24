@@ -6,7 +6,12 @@
          racket/match
          "core-lang.rkt")
 
-(provide parse)
+(provide
+ Stx-Seq
+ Id
+ ResolvedId
+ distinct-names?
+ parse)
 
 (define-match-expander Stx-Seq
   (lambda (stx)
@@ -24,17 +29,22 @@
 (define-match-expander Id
   (lambda (stx)
     (syntax-case stx ()
-      ((_ pat) #'(and (Stx (Sym _) _) (app resolve pat))))))
+      ((_ pat) #'(and (Stx (Sym _) _) pat)))))
 
-(define (distinct? (names : (Listof Symbol)))
+(define-match-expander ResolvedId
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ pat) #'(Id (app resolve pat))))))
+
+(define (distinct-names? (names : (Listof Symbol)))
   ;; ISSUE: not the greatest algorithm of all time:
   (= (length (remove-duplicates names))
      (length names)))
 
 (define (parse-lambda (i : Stx)) : Ast
   (match i
-    ((Stx-Seq _ (Stx-Seq (Id #{names : (Listof Symbol)}) ...) (? Stx? body))
-     #:when (distinct? names)
+    ((Stx-Seq _ (Stx-Seq (ResolvedId #{names : (Listof Symbol)}) ...) (? Stx? body))
+     #:when (distinct-names? names)
      (Fun (map Var names) (parse body)))
     (_
      (error
@@ -70,14 +80,14 @@
 
 (define (parse (i : Stx)) : Ast
   (match i
-    ((Id 'lambda) (parse-lambda i))
-    ((Stx-Seq (Id 'lambda) _ ...) (parse-lambda i))
-    ((Id 'quote) (parse-quote i))
-    ((Stx-Seq (Id 'quote) _ ...) (parse-quote i))
-    ((Id 'syntax) (parse-syntax i))
-    ((Stx-Seq (Id 'syntax) _ ...) (parse-syntax i))
+    ((ResolvedId 'lambda) (parse-lambda i))
+    ((Stx-Seq (ResolvedId 'lambda) _ ...) (parse-lambda i))
+    ((ResolvedId 'quote) (parse-quote i))
+    ((Stx-Seq (ResolvedId 'quote) _ ...) (parse-quote i))
+    ((ResolvedId 'syntax) (parse-syntax i))
+    ((Stx-Seq (ResolvedId 'syntax) _ ...) (parse-syntax i))
     ((Stx-Seq _ ...) (parse-application i))
-    ((Id name) (Var name))
+    ((ResolvedId name) (Var name))
     ;; not accepting other values (for now):
     (_
      (error "parse: unrecognized form" i))))

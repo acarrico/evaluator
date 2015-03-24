@@ -177,3 +177,84 @@ Or even the syntax-object scanner:
 (check-equal? (parse (Stx-scan '(syntax (x y z))))
               (Stx-scan '(x y z)))
 ```
+
+# Day 7, 8, 9 — Expander
+
+This section's git tag is *expander*.
+
+*Macros that Work Together* says, "The next step ... is to create an
+expander that takes a syntax object for a source program and returns a
+syntax object for the expanded program."
+
+  * *expand* converts a source syntax-object (type Stx) to a
+    syntax-object (type Stx) that fits the parser.
+
+The expander must also *recognize* the forms seen by the parser as
+mandated earlier in the paper, "the output of the expand function must
+also be a suitable input to expand, and expand must be idempotent."
+
+It follows that since the parser is already done, the framework of the
+expander can be cut-and-pasted from the parser. Anytime I
+cut-and-paste code, I wonder about abstraction. In this case,
+expansion could be a mode switch for the parser or vice versa. There
+are quite a few problems with that idea, starting with the different
+return types differ (Stx vs. Ast). Still, the patterns and error
+checking might be shared somehow.
+
+Another practical issue is building a list and reversing it into a
+*Seq*. I used type *Seq* for lists in the evaluator to emphasize that
+it is an ordered composite, but not to imply a single linked list. The
+code would be nicer with a *Seq* data structure that can cons at both
+ends.
+
+The expander must generate fresh names, so I've created the
+*CompState* type to keep track of a counter. *CompState* could be
+extended if other state is needed. The counter is a simple way to
+generate the fresh names, but it would be nice if the expander's
+output was independent of the particulars of the expander itself.
+Perhaps if syntax-objects were (explictly) graphs instead of trees,
+variable references could connect to bindings instead of using fresh
+names.
+
+This notion of a graph data structure representing not just the
+syntax, but also environment, and compiler state distracted me for a
+while. It is intriguing to think about passing a node with parsed
+context above and unparsed syntax below. In this case, transformers
+could easily determine if they were in an expression, definition,
+match, module or other context by looking *up*. Identifiers cut and
+pasted by macros could be closed over and then moved in and out of
+these contexts.
+
+Meanwhile, I've implemented the simple thing. It is tricky to test the
+expanded syntax with all its context, so the *check-expand* helper
+parses the output. Even so, knowledge of variable renaming is
+necessary to write the checks. I should probably write a checker that
+checks syntax vs. syntax, dealing with context and alpha conversion,
+but for now testing looks like this:
+
+```
+(check-expand '(lambda (lambda) lambda)
+              (Fun (list (Var '#%0-lambda)) (Var '#%0-lambda)))
+```
+
+```
+(check-expand '(lambda (x) (lambda (y) (x y)))
+              (Fun (list (Var '#%0-x))
+                   (Fun (list (Var '#%1-y))
+                        (App (list (Var '#%0-x) (Var '#%1-y))))))
+```
+
+Just to be sure I've achieved the goal, I also run the expanded
+outputs back through the expander to test idempotence:
+
+```
+(check-re-expand '(lambda (lambda) lambda)
+                 (Fun (list (Var '#%1-lambda)) (Var '#%1-lambda)))
+```
+
+If I had a better checker, I could avoid duplicating test cases when
+checking re-expansion.
+
+Finally, note that I have extended the model in the paper to allow
+identifiers to be bound as transformers. In addition to being useful,
+it simplifies error checking.
