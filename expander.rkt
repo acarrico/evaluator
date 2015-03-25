@@ -6,6 +6,7 @@
          "parser.rkt")
 
 (provide Env CompState TransformBinding
+         VarBinding
          fun-transform
          quote-transform
          expand)

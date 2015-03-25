@@ -1,8 +1,35 @@
 #lang typed/racket/base
 
-(require "core-lang.rkt" "scanner.rkt" "parser.rkt" "expander.rkt")
+(require "core-lang.rkt" "scanner.rkt" "parser.rkt" "expander.rkt"
+         racket/match)
 
 (require typed/rackunit)
+
+(define (make-initial-state (src-bindings : (Listof (List Symbol Any))))
+  : (Values AstEnv Env CompState)
+  (define core-expand-env
+    (list (list 'lambda (TransformBinding fun-transform))
+          (list 'quote (TransformBinding quote-transform))
+          (list 'syntax (TransformBinding quote-transform))))
+  (for/fold ((#{eval-env : AstEnv} '())
+             (#{expand-env : Env} core-expand-env)
+             (state (CompState 0)))
+            ((#{src-binding : (List Symbol Any)} src-bindings))
+    (match src-binding
+      ((list name val)
+       (values
+        (cons (list (Var name) (scan val)) eval-env)
+        (cons (list name (VarBinding (Stx (Sym name) empty-context))) expand-env)
+        state)))))
+
+(define-values (initial-eval-env initial-expand-env initial-state)
+  (make-initial-state '((cons #%cons)
+                        (car #%car)
+                        (cdr #%cdr)
+                        (list-ref #%list-ref)
+                        (list #%list)
+                        (stx-e #%stx-e)
+                        (mk-stx #%mk-stx))))
 
 ;; Scanner:
 (check-equal? (scan 'x)
@@ -21,16 +48,9 @@
               (Stx 2 (Sym 'context)))
 
 ;; Ast Evaluator:
-(define ast-env (AstEnv-scan '((cons #%cons)
-                               (car #%car)
-                               (cdr #%cdr)
-                               (list-ref #%list-ref)
-                               (list #%list)
-                               (stx-e #%stx-e)
-                               (mk-stx #%mk-stx))))
 
 (define (check-Ast-eval i o)
-  (check-equal? (Ast-eval (Ast-scan i) ast-env) (scan o)))
+  (check-equal? (Ast-eval (Ast-scan i) initial-eval-env) (scan o)))
 
 (check-Ast-eval 'cons
                 '#%cons)
@@ -88,18 +108,13 @@
 
 ;; expander
 
-(define initial-state (CompState 0))
-(define expand-env (list (list 'lambda (TransformBinding fun-transform))
-                         (list 'quote (TransformBinding quote-transform))
-                         (list 'syntax (TransformBinding quote-transform))))
-
 (define (check-expand i o)
-  (define-values (state expanded) (expand initial-state expand-env (Stx-scan i)))
+  (define-values (state expanded) (expand initial-state initial-expand-env (Stx-scan i)))
   (check-equal? (parse expanded) o))
 
 (define (check-re-expand i o)
-  (define-values (state expanded) (expand initial-state expand-env (Stx-scan i)))
-  (define-values (state* expanded*) (expand state expand-env expanded))
+  (define-values (state expanded) (expand initial-state initial-expand-env (Stx-scan i)))
+  (define-values (state* expanded*) (expand state initial-expand-env expanded))
   (check-equal? (parse expanded*) o))
 
 (check-expand '(lambda (x) x)
@@ -155,3 +170,46 @@
 
 (check-re-expand '(lambda (lambda) #'lambda)
                  (Fun (list (Var '#%1-lambda)) (Stx (Sym 'lambda) empty-context)))
+
+;;; Evaluation
+
+(define (eval i)
+  (define-values (state expanded)
+    (expand initial-state initial-expand-env (Stx-scan i)))
+  (Ast-eval (parse expanded) initial-eval-env))
+
+(define (check-eval i o)
+  (check-equal? (eval i) (scan o)))
+
+(check-eval 'cons
+            '#%cons)
+
+(check-eval '(cons '1 '())
+            '(1))
+
+(check-eval '((lambda (y) y) '1)
+            '1)
+
+(check-eval '(list-ref '(a b c) '0)
+            'a)
+
+(check-eval '(list-ref (list 'a 'b 'c) '0)
+            'a)
+
+(check-eval '(car (list '1 '2))
+            '1)
+
+(check-eval '(cdr (cons '1 (list '2)))
+            '(2))
+
+(check-eval '(cdr (list '1 '2))
+            '(2))
+
+(check-eval '(list)
+            '())
+
+(check-eval '(((lambda (x) (lambda () x)) '5))
+            '5)
+
+(check-eval '((lambda (y) ((lambda (x) y) '0)) '1)
+            '1)

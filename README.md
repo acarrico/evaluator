@@ -258,3 +258,45 @@ checking re-expansion.
 Finally, note that I have extended the model in the paper to allow
 identifiers to be bound as transformers. In addition to being useful,
 it simplifies error checking.
+
+# Day 11 — Evaluation
+
+This section's git tag is *evaluation*.
+
+Before introducing macros, it is worth hooking up all the pieces. All
+of this is in test.rkt. First I've gathered together consistent
+initial state: *initial-eval-env*, *initial-expand-env*, and
+*initial-state*. Now the expansion environment contains variable
+bindings for the primitive operations in addition to *lambda*,
+*quote*, and *syntax*. With that, I can define *check-eval* to take a
+full trip through the system:
+
+```
+(define (eval i)
+  (define-values (state expanded)
+    (expand initial-state initial-expand-env (Stx-scan i)))
+  (Ast-eval (parse expanded) initial-eval-env))
+
+(define (check-eval i o)
+(check-equal? (eval i) (scan o)))
+```
+
+The input is scanned to syntax, expanded, parsed, evaluated, and
+compared to the scanned expected output. I've more-or-less duplicated
+the old *check-Ast-eval* checks with *check-eval*. They look like
+this:
+
+```
+(check-eval '(list-ref (list 'a 'b 'c) '0)
+            'a)
+```
+
+The *check-Ast-eval* checks include some literal closure values, but
+the syntax scanner can't create closure literals, however it isn't
+really necessary since the closures in those tests can easily be
+created with lambda:
+
+```
+(check-eval '((lambda (y) ((lambda (x) y) '0)) '1)
+            '1)
+```
