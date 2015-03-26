@@ -260,7 +260,7 @@ Finally, note that I have extended the model in the paper to allow
 identifiers to be bound as transformers. In addition to being useful,
 it simplifies error checking.
 
-# Day 11 — Evaluation
+# Day 10 — Evaluation
 
 This section's git tag is *evaluation*.
 
@@ -300,4 +300,49 @@ created with lambda:
 ```
 (check-eval '((lambda (y) ((lambda (x) y) '0)) '1)
             '1)
+```
+# Day 11 — Binding and Using Macros
+
+This section's git tag is *macros*
+
+With the machinery that is in place, the *let-syntax* transformer is
+simple: just parse, evaluate, and bind the macro transformer. It is
+not expanded, keeping with the model in the paper. Expansion would
+bring questions about the appropriate expansion environment for macro
+transformers. I'll probably need to address these questions later,
+since it is painful to write macros in a language without macros. Even
+so, I do need an evaluation environment for macro transformers, so
+I've added one to the compiler state.
+
+For macro use, the expander has a new clause to perform macro
+applications and re-expand the resulting syntax-object. This could be
+done with *Ast-eval*, but to be a little cleaner, I've added
+*Ast-apply-values* to the core.
+
+For testing, I've added *let-syntax* to the environment. I've also
+added a new primitive *+*, which lets me try the unhygienic examples
+from the paper:
+
+```
+(check-eval
+ '(let-syntax thunk (lambda (e)
+                      (mk-stx
+                       (list #'lambda #'(a)
+                             (car (cdr (stx-e e))))
+                       e))
+              ((thunk (+ '1 '2)) '0))
+ '3)
+
+(check-eval
+ '(let-syntax thunk (lambda (e)
+                      (mk-stx
+                       (list #'lambda #'(a)
+                             (car (cdr (stx-e e))))
+                       e))
+              (((lambda (a) (thunk (+ a '1))) '5) '0))
+ ;; Unhygienic answer:
+ '1
+ ;; Hygienic answer:
+ ;; '6
+ )
 ```

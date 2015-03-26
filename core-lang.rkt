@@ -10,7 +10,8 @@
  (struct-out Stx) Ctx
  AstEnv
  empty-context
- Ast-eval)
+ Ast-eval
+ Ast-apply-values)
 
 (define-type Ast (U Var App Val))
 (struct Var ((name : Symbol)) #:transparent)
@@ -82,5 +83,19 @@
      (Stx val ctx))
     (((PrimOp 'mk-stx) (list (? (make-predicate Atom) val) (Stx _ ctx)))
      (Stx val ctx))
+    (((PrimOp '+) (list (? (make-predicate Integer) x) (? (make-predicate Integer) y)))
+     (+ x y))
     ((_ _)
      (error "Prim-eval bad primitive form" op args))))
+
+(define (Ast-apply-values (closure : Closure) (args : (Listof Val)))
+  ;; NOTE: this does not evaluate the operator or the args.
+  (match closure
+    ((Closure (Fun (list vars ...) body) env)
+     (unless (= (length vars) (length args))
+       (error "Ast-apply: wrong number of arguments" vars args))
+     (define env* : AstEnv
+       (for/fold ((env env))
+                 ((var vars) (arg args))
+         (cons (list var arg) env)))
+     (Ast-eval body env*))))

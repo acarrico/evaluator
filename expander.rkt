@@ -9,6 +9,7 @@
          VarBinding
          fun-transform
          quote-transform
+         let-syntax-transform
          expand)
 
 (define-type Transform (-> CompState Env Stx (Values CompState Stx)))
@@ -17,7 +18,9 @@
 (struct VarBinding ((id : Stx)) #:transparent)
 (define-type Binding (U TransformBinding ValBinding VarBinding))
 (define-type Env (Listof (List Symbol Binding)))
-(struct CompState ((next-fresh : Natural)) #:transparent)
+(struct CompState ((next-fresh : Natural)
+                   (eval-env : AstEnv))
+  #:transparent)
 
 (define (build-fresh-name (name : Symbol) (index : Natural)) : Symbol
   (string->symbol
@@ -44,6 +47,14 @@
      ;; ISSUE: for/list somehow ends up with Integer for index, see
      ;; Racket bug number 13287, so cast for now:
      (build-fresh-name name (cast index Natural)))))
+
+(: let-syntax-transform Transform)
+(define (let-syntax-transform state env i)
+  (match i
+    ((Stx-Seq _ (ResolvedId name) (? Stx? rhs) (? Stx? body))
+     (define transformer (Ast-eval (parse rhs) (CompState-eval-env state)))
+     (define env* (cons (list name (ValBinding transformer)) env))
+     (expand state env* body))))
 
 (: fun-transform Transform)
 (define (fun-transform state env i)
@@ -101,8 +112,13 @@
      (match binding
        ((TransformBinding transform)
         (transform initial-state env i))
-       ((ValBinding val)
-        (error "expand: ValBinding not supported yet."))
+       ((ValBinding (and (Closure (Fun (list _) _) _) transform))
+        (define o (Ast-apply-values transform (list i)))
+        (if (Stx? o)
+            (expand initial-state env o)
+            (error "expand: macro transformer did not return syntax" o)))
+       ((ValBinding _)
+        (error "expand: arbitrary ValBinding not supported."))
        ((VarBinding id)
         (match i
           ;; Lone variable reference:

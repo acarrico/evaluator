@@ -10,17 +10,18 @@
   (define core-expand-env
     (list (list 'lambda (TransformBinding fun-transform))
           (list 'quote (TransformBinding quote-transform))
-          (list 'syntax (TransformBinding quote-transform))))
-  (for/fold ((#{eval-env : AstEnv} '())
-             (#{expand-env : Env} core-expand-env)
-             (state (CompState 0)))
-            ((#{src-binding : (List Symbol Any)} src-bindings))
-    (match src-binding
-      ((list name val)
-       (values
-        (cons (list (Var name) (scan val)) eval-env)
-        (cons (list name (VarBinding (Stx (Sym name) empty-context))) expand-env)
-        state)))))
+          (list 'syntax (TransformBinding quote-transform))
+          (list 'let-syntax (TransformBinding let-syntax-transform))))
+  (define-values (eval-env expand-env)
+    (for/fold ((#{eval-env : AstEnv} '())
+               (#{expand-env : Env} core-expand-env))
+              ((#{src-binding : (List Symbol Any)} src-bindings))
+      (match src-binding
+        ((list name val)
+         (values
+          (cons (list (Var name) (scan val)) eval-env)
+          (cons (list name (VarBinding (Stx (Sym name) empty-context))) expand-env))))))
+  (values eval-env expand-env (CompState 0 eval-env)))
 
 (define-values (initial-eval-env initial-expand-env initial-state)
   (make-initial-state '((cons #%cons)
@@ -29,7 +30,8 @@
                         (list-ref #%list-ref)
                         (list #%list)
                         (stx-e #%stx-e)
-                        (mk-stx #%mk-stx))))
+                        (mk-stx #%mk-stx)
+                        (+ #%+))))
 
 ;; Scanner:
 (check-equal? (scan 'x)
@@ -213,3 +215,31 @@
 
 (check-eval '((lambda (y) ((lambda (x) y) '0)) '1)
             '1)
+
+;;; Macros
+
+;;; NOTE: In 'Macros that Work Together', all functions take one
+;;; argument, so the thunk macro may be a little confusing: it takes
+;;; one ignored argument.
+
+(check-eval
+ '(let-syntax thunk (lambda (e)
+                      (mk-stx
+                       (list #'lambda #'(a)
+                             (car (cdr (stx-e e))))
+                       e))
+              ((thunk (+ '1 '2)) '0))
+ '3)
+
+(check-eval
+ '(let-syntax thunk (lambda (e)
+                      (mk-stx
+                       (list #'lambda #'(a)
+                             (car (cdr (stx-e e))))
+                       e))
+              (((lambda (a) (thunk (+ a '1))) '5) '0))
+ ;; Unhygienic answer:
+ '1
+ ;; Hygienic answer:
+ ;; '6
+ )
