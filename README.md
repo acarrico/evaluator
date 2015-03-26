@@ -305,6 +305,10 @@ created with lambda:
 
 This section's git tag is *macros*
 
+As a historical note, unhygienic macros go all the way back to Timothy
+Hart's, *MACRO Definitions for LISP*,
+[AIM-057](https://github.com/acarrico/ai-memo), 1963-10-12.
+
 With the machinery that is in place, the *let-syntax* transformer is
 simple: just parse, evaluate, and bind the macro transformer. It is
 not expanded, keeping with the model in the paper. Expansion would
