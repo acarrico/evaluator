@@ -11,8 +11,6 @@
  Stx-scan
  )
 
-(define Val? (make-predicate Val))
-
 ;; scanner
 ;;
 ;; NOTE: the #%name syntax reads as a symbol in Racket, but I'm
@@ -41,7 +39,12 @@
     ((list (primitive 'fun) (list (? symbol? #{vars : (Listof Symbol)}) ...) body)
      (Fun (map Var vars) (Ast-scan body)))
     ;; Scan Stx:
-    ((list (primitive 'stx) stx ctx) (Stx (scan stx) (scan ctx)))
+    ((list (primitive 'stx) raw-content raw-context)
+     (Stx
+      (match (scan raw-content)
+        ((? StxContent? content) content)
+        (_ (error "scan: bad content for Stx" raw-content)))
+      (scan raw-context)))
     ;; Scan PrimAst:
     ((list (primitive 'ast) ast) (PrimAst (Ast-scan ast)))
     ;; Scan Seq:

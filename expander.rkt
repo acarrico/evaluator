@@ -51,7 +51,7 @@
 (: let-syntax-transform Transform)
 (define (let-syntax-transform state env i)
   (match i
-    ((Stx-Seq _ (ResolvedId name) (? Stx? rhs) (? Stx? body))
+    ((StxSeq _ (ResolvedId name) rhs body)
      (define transformer (Ast-eval (parse rhs) (CompState-eval-env state)))
      (define env* (cons (list name (ValBinding transformer)) env))
      (expand state env* body))))
@@ -61,10 +61,10 @@
   (match i
     ((Stx (Seq (list lambda-id
                      (and (Stx _ vars-ctx)
-                          (Stx-Seq
+                          (StxSeq
                            (ResolvedId #{resolved-names : (Listof Symbol)})
                            ...))
-                     (? Stx? body)))
+                     body))
           outer-ctx)
      #:when (distinct-names? resolved-names)
      ;; Rename ids, extend the environment, expand the body:
@@ -90,7 +90,7 @@
 (: quote-transform Transform)
 (define (quote-transform state env i)
   (match i
-    ((Stx-Seq _ _)
+    ((StxSeq _ _)
      (values state i))
     (_
      (error "expand: quote requires exactly one subform" i))))
@@ -125,8 +125,7 @@
           ((Id _)
            (values initial-state id))
           ;; Variable reference is the operator in a sequence:
-          ((Stx (Seq (list _ (? Stx? #{args : (Listof Stx)}) ...))
-                ctx)
+          ((Stx (Seq (list _ #{args : (Listof Stx)} ...)) ctx)
            (define-values (state expanded-args) (expand-list initial-state env args))
            (values state (Stx (Seq (cons id expanded-args)) ctx)))))))
     (_
@@ -138,10 +137,10 @@
     ;; dispatch on name: ISSUE: can't get 'or' pattern to typecheck here:
     ((ResolvedId #{name : Symbol})
      (expand/name initial-state env i name))
-    ((Stx-Seq (ResolvedId #{name : Symbol}) _ ...)
+    ((StxSeq (ResolvedId #{name : Symbol}) _ ...)
      (expand/name initial-state env i name))
     ;; expand subforms:
-    ((Stx (Seq (list (? Stx? #{stxes : (Listof Stx)}) ...)) ctx)
+    ((Stx (Seq (list #{stxes : (Listof Stx)} ...)) ctx)
      (define-values (state expanded-stxes)
        (expand-list initial-state env stxes))
      (values state (Stx (Seq expanded-stxes) ctx)))

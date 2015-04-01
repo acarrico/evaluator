@@ -350,3 +350,24 @@ from the paper:
  ;; '6
  )
 ```
+
+# Day 12 — Core Language Update
+
+This section's git tag is *core-language2*
+
+I'm going to have to get serious about a data structure for syntax
+context soon, but first I'm refining the rest of the core language.
+First, I've distingished *StxAtom* from *Atom*. Second, I've made
+*Seq* polymorphic, so I can distinguish *(Seq Val)* and *(Seq Stx)*.
+Together these allow a more precise definition of *Stx*, so syntax is
+more cleanly separated from (other) values. I've also collected up
+some of the predicates and match expanders. The changes make all the
+pattern matching in the rest of the code somewhat simpler.
+
+Coincidentally, Matthias Felleisen and company have just released
+[*The Racket Manifesto*](http://www.ccs.neu.edu/home/matthias/manifesto/sec_pl-pl.html),
+which says *Racket insists on separating the various stages of
+language processing, particularly enforcing a strict separation of
+compile-time from run-time code. For example, the rewriting rules
+generate pure syntax and may not embed other language values inside
+this syntax.*

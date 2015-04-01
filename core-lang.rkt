@@ -1,36 +1,76 @@
 #lang typed/racket/base
 
-(require racket/match)
+(require racket/match
+         (for-syntax typed/racket/base))
 
 (provide
  Ast (struct-out Var) (struct-out App)
- Val (struct-out Fun) (struct-out Seq)
- Atom (struct-out Sym) (struct-out PrimOp)
+ Val Val? (struct-out Fun) (struct-out Seq)
+ StxAtom StxAtom? Atom Atom?
+ (struct-out Sym) (struct-out PrimOp)
  (struct-out PrimAst) (struct-out Closure)
- (struct-out Stx) Ctx
+ StxSeq StxSeq?
+ StxContent StxContent?
+ Ctx empty-context
+ (struct-out Stx)
+ Id
+ ResolvedId
  AstEnv
- empty-context
  Ast-eval
  Ast-apply-values)
 
 (define-type Ast (U Var App Val))
 (struct Var ((name : Symbol)) #:transparent)
 (struct App ((args : (Listof Ast))) #:transparent)
-(define-type Val (U Fun Seq Atom))
+(define-type Val (U Fun (Seq Val) Atom))
 (struct Fun ((vars : (Listof Var)) (body : Ast)) #:transparent)
-(struct Seq ((elems : (Listof Val))) #:transparent)
-(define-type Atom (U Sym PrimOp PrimAst Closure Integer Stx))
+(struct (T) Seq ((elems : (Listof T))) #:transparent)
+(define Val? (make-predicate Val))
+(define-type StxAtom (U Sym Integer) #:omit-define-syntaxes)
+(define StxAtom? (make-predicate StxAtom))
+(define-match-expander StxAtom
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ pat)
+       #'(Stx (? StxAtom? pat) _)))))
+(define-type Atom (U StxAtom PrimOp PrimAst Closure Stx))
+(define Atom? (make-predicate Atom))
 (struct Sym ((name : Symbol)) #:transparent)
 (struct PrimOp ((name : Symbol)) #:transparent)
 (struct PrimAst ((ast : Ast)) #:transparent)
 (struct Closure ((fun : Fun) (env : AstEnv)) #:transparent)
-;; ISSUE: should be (val : (U (Seq ((elems : (Listof Stx)))) Atom))
-;; but Seq isn't polymorphic, so I don't think there is a way to
-;; express that:
-(struct Stx ((val : Val) (ctx : Ctx)) #:transparent)
-(define-type Ctx Val)
 
+(define-type StxSeq (Seq Stx) #:omit-define-syntaxes)
+(define (StxSeq? x) (make-predicate (Seq Stx)))
+(define-match-expander StxSeq
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ pat ...)
+       #'(Stx (Seq (list pat ...)) _)))))
+
+(define-type StxContent (U StxSeq StxAtom))
+(define StxContent? (make-predicate StxContent))
+
+(define-type Ctx Val)
 (define empty-context (Sym 'context))
+
+(struct Stx ((val : StxContent) (ctx : Ctx)) #:transparent)
+
+(define (resolve (stx : Stx)) : Symbol
+  (match stx
+    ((Stx (Sym name) _) name)
+    (_
+     (error "resolve: expected symbol syntax"))))
+
+(define-match-expander Id
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ pat) #'(and (Stx (Sym _) _) pat)))))
+
+(define-match-expander ResolvedId
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ pat) #'(Id (app resolve pat))))))
 
 (define-type AstEnv (Listof (List Var Val)))
 
@@ -62,7 +102,7 @@
            (error "Ast-eval: variable not in current environment" name))))
     ((? Fun? fn)
      (Closure fn env))
-    ((? (make-predicate Val) val)
+    ((? Val? val)
      val)))
 
 (define (Prim-eval (op : PrimOp) (args : (Listof Val))) : Val
@@ -79,9 +119,7 @@
      (Seq args))
     (((PrimOp 'stx-e) (list (Stx val ctx)))
      val)
-    (((PrimOp 'mk-stx) (list (and val (Seq (list (struct Stx _) ...))) (Stx _ ctx)))
-     (Stx val ctx))
-    (((PrimOp 'mk-stx) (list (? (make-predicate Atom) val) (Stx _ ctx)))
+    (((PrimOp 'mk-stx) (list (? StxContent? val) (Stx _ ctx)))
      (Stx val ctx))
     (((PrimOp '+) (list (? (make-predicate Integer) x) (? (make-predicate Integer) y)))
      (+ x y))
