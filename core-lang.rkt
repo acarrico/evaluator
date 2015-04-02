@@ -1,20 +1,15 @@
 #lang typed/racket/base
 
 (require racket/match
-         (for-syntax typed/racket/base))
+         "syntax-lang.rkt")
 
 (provide
+ (all-from-out "syntax-lang.rkt")
  Ast (struct-out Var) (struct-out App)
- Val Val? (struct-out Fun) (struct-out Seq)
- StxAtom StxAtom? Atom Atom?
- (struct-out Sym) (struct-out PrimOp)
+ Val Val? (struct-out Fun)
+ Atom Atom?
+ (struct-out PrimOp)
  (struct-out PrimAst) (struct-out Closure)
- StxSeq StxSeq?
- StxContent StxContent?
- Ctx empty-context
- (struct-out Stx)
- Id
- ResolvedId
  AstEnv
  Ast-eval
  Ast-apply-values)
@@ -24,53 +19,12 @@
 (struct App ((args : (Listof Ast))) #:transparent)
 (define-type Val (U Fun (Seq Val) Atom))
 (struct Fun ((vars : (Listof Var)) (body : Ast)) #:transparent)
-(struct (T) Seq ((elems : (Listof T))) #:transparent)
 (define Val? (make-predicate Val))
-(define-type StxAtom (U Sym Integer) #:omit-define-syntaxes)
-(define StxAtom? (make-predicate StxAtom))
-(define-match-expander StxAtom
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ pat)
-       #'(Stx (? StxAtom? pat) _)))))
 (define-type Atom (U StxAtom PrimOp PrimAst Closure Stx))
 (define Atom? (make-predicate Atom))
-(struct Sym ((name : Symbol)) #:transparent)
 (struct PrimOp ((name : Symbol)) #:transparent)
 (struct PrimAst ((ast : Ast)) #:transparent)
 (struct Closure ((fun : Fun) (env : AstEnv)) #:transparent)
-
-(define-type StxSeq (Seq Stx) #:omit-define-syntaxes)
-(define (StxSeq? x) (make-predicate (Seq Stx)))
-(define-match-expander StxSeq
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ pat ...)
-       #'(Stx (Seq (list pat ...)) _)))))
-
-(define-type StxContent (U StxSeq StxAtom))
-(define StxContent? (make-predicate StxContent))
-
-(define-type Ctx Val)
-(define empty-context (Sym 'context))
-
-(struct Stx ((val : StxContent) (ctx : Ctx)) #:transparent)
-
-(define (resolve (stx : Stx)) : Symbol
-  (match stx
-    ((Stx (Sym name) _) name)
-    (_
-     (error "resolve: expected symbol syntax"))))
-
-(define-match-expander Id
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ pat) #'(and (Stx (Sym _) _) pat)))))
-
-(define-match-expander ResolvedId
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ pat) #'(Id (app resolve pat))))))
 
 (define-type AstEnv (Listof (List Var Val)))
 

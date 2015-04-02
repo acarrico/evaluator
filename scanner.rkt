@@ -44,7 +44,9 @@
       (match (scan raw-content)
         ((? StxContent? content) content)
         (_ (error "scan: bad content for Stx" raw-content)))
-      (scan raw-context)))
+      (match (scan raw-context)
+        ((? Ctx? context) context)
+        (_ (error "scan: bad context for Stx" raw-context)))))
     ;; Scan PrimAst:
     ((list (primitive 'ast) ast) (PrimAst (Ast-scan ast)))
     ;; Scan Seq:
