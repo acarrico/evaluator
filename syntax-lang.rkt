@@ -10,7 +10,7 @@
  StxSeq StxSeq?
  StxContent StxContent?
  Ctx Ctx? empty-context
- (struct-out Stx)
+ Stx Stx?
  Id
  ResolvedId)
 
@@ -41,7 +41,33 @@
 (define Ctx? (make-predicate Ctx))
 (define empty-context (Sym 'context))
 
-(struct Stx ((val : StxContent) (ctx : Ctx)) #:transparent)
+(define (Ctx-merge (inner : Ctx) (outer : Ctx)) : Ctx
+  (error "Ctx-merge: not implemented."))
+
+(struct StxLazy ((stx : StxStrict) (ctx : Ctx)) #:transparent)
+(struct StxStrict ((val : StxContent) (ctx : Ctx)) #:transparent)
+(define-type Stx (U StxLazy StxStrict) #:omit-define-syntaxes)
+(define Stx? (make-predicate Stx))
+
+(define-match-expander Stx
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ val-pat ctx-pat)
+       #'(? Stx? (app Stx->StxStrict (StxStrict val-pat ctx-pat))))))
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ more ...) #'(StxStrict more ...))
+      (_ #'StxStrict))))
+
+(define (Stx->StxStrict (i : Stx)) : StxStrict
+  (match i
+    ((? StxStrict? o) o)
+    ((StxLazy (StxStrict content ctx-inner) ctx-outer)
+     (StxStrict
+      (if (list? content)
+          (for/list ((stx content)) (StxLazy stx ctx-outer))
+          content)
+      (Ctx-merge ctx-inner ctx-outer)))))
 
 (define (resolve (stx : Stx)) : Symbol
   (match stx

@@ -384,3 +384,33 @@ works fine in a Racket snapshot (thanks to Sam Tobin-Hochstadt for
 testing this). If you are following along with a bad version, and you
 don't want to grab a snapshot, you could probably combine the two
 files to avoid the error.
+
+# Day 13 — Lazy Context
+
+This section's git tag is *lazy-context*
+
+*Macros that Work Together* adds context by marking and renaming
+syntax-objects. In the model, these operations work deeply, "the mark
+and rename meta-functions push *Mark* and *Rename* records down to all
+ctx chains in a syntax object". In *Syntactic Abstraction in Scheme*,
+Dybvig, Heib, and Bruggeman point out that earlier systems added
+context naively leading to quadradic behavior. Rather than applying
+context to every node eagerly, Dybvig wraps context around nodes, and
+pushes it down when children are exposed,
+
+
+To achieve this, I've replaced the *Stx* structure with *StxLazy* and
+*StxStrict*. I've used *define-type*, *define-match-expander*, and
+*make-predicate* to imitate the syntax of the original *Stx* struct.
+No changes were required in the rest of the code.
+
+That is pretty cool. It highlights the power of defining syntax in
+general. However, the specific ways the specifications are combined
+are ad hoc: *define-match-expander* can provide two meanings to an
+identifier, one in a match context, and one in an expression context,
+and with the *#:omit-define-syntaxes* keyword, *define-type* can add a
+third meaning, in a type expression context. Racket is getting the job
+done, but it brings back my reflections in the expander section above,
+about what context the expander should provide to macros, and what
+mechanisms for building up syntax should be available, etc. I will
+again try to ignore these reflections.
