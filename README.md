@@ -396,7 +396,7 @@ ctx chains in a syntax object". In *Syntactic Abstraction in Scheme*,
 Dybvig, Heib, and Bruggeman point out that earlier systems added
 context naively leading to quadradic behavior. Rather than applying
 context to every node eagerly, Dybvig wraps context around nodes, and
-pushes it down when children are exposed,
+pushes it down when children are exposed.
 
 
 To achieve this, I've replaced the *Stx* structure with *StxLazy* and
