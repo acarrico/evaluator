@@ -39,14 +39,14 @@
     ((list (primitive 'fun) (list (? symbol? #{vars : (Listof Symbol)}) ...) body)
      (Fun (map Var vars) (Ast-scan body)))
     ;; Scan Stx:
-    ((list (primitive 'stx) raw-content raw-context)
+    ((list (primitive 'stx) raw-content)
      (Stx
       (match (scan raw-content)
         ((? StxContent? content) content)
         (_ (error "scan: bad content for Stx" raw-content)))
-      (match (scan raw-context)
-        ((? Ctx? context) context)
-        (_ (error "scan: bad context for Stx" raw-context)))))
+      ;; NOTE: Ctx not a Val, so it can't be scanned, so don't bother
+      ;; trying to read context:
+      (EmptyCtx)))
     ;; Scan PrimAst:
     ((list (primitive 'ast) ast) (PrimAst (Ast-scan ast)))
     ;; Scan Seq:
@@ -80,9 +80,9 @@
 (define (Stx-scan (i : Any)) : Stx
   (match i
     ;; Scan Seq:
-    ((list subs ...) (Stx (Seq (map Stx-scan subs)) empty-context))
+    ((list subs ...) (Stx (Seq (map Stx-scan subs)) (EmptyCtx)))
     ;; Scan Sym
-    ((? symbol? name) (Stx (Sym name) empty-context))
+    ((? symbol? name) (Stx (Sym name) (EmptyCtx)))
     ;; Scan Integer
-    ((? (make-predicate Integer) i) (Stx i empty-context))
+    ((? (make-predicate Integer) i) (Stx i (EmptyCtx)))
     (_ (error "Stx-scan: unrecognized syntax" i))))

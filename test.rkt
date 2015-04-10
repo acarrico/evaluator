@@ -20,7 +20,7 @@
         ((list name val)
          (values
           (cons (list (Var name) (scan val)) eval-env)
-          (cons (list name (VarBinding (Stx (Sym name) empty-context))) expand-env))))))
+          (cons (list name (VarBinding (Stx (Sym name) (EmptyCtx)))) expand-env))))))
   (values eval-env expand-env (CompState 0 eval-env)))
 
 (define-values (initial-eval-env initial-expand-env initial-state)
@@ -46,8 +46,8 @@
               (Seq (list (Sym 'x) (Sym 'y) (Sym 'z))))
 (check-equal? (scan '#%cons) (PrimOp 'cons))
 (check-equal? (scan 1) 1)
-(check-equal? (scan '(#%stx 2 context))
-              (Stx 2 (Sym 'context)))
+(check-equal? (scan '(#%stx 2))
+              (Stx 2 (EmptyCtx)))
 
 ;; Ast Evaluator:
 
@@ -79,10 +79,10 @@
 
 ;; syntax-objects:
 
-(check-Ast-eval '(mk-stx 1 (#%val (#%stx 2 context)))
-                '(#%stx 1 context))
+(check-Ast-eval '(mk-stx 1 (#%val (#%stx 2)))
+                '(#%stx 1))
 
-(check-Ast-eval '(stx-e (mk-stx 1 (#%val (#%stx 2 context))))
+(check-Ast-eval '(stx-e (mk-stx 1 (#%val (#%stx 2))))
                 '1)
 
 ;; parser
@@ -137,13 +137,13 @@
               (Sym 'x))
 
 (check-expand '(syntax x)
-              (Stx (Sym 'x) empty-context))
+              (Stx (Sym 'x) (EmptyCtx)))
 
 (check-expand '(lambda (lambda) 'lambda)
               (Fun (list (Var '#%0-lambda)) (Sym 'lambda)))
 
 (check-expand '(lambda (lambda) #'lambda)
-              (Fun (list (Var '#%0-lambda)) (Stx (Sym 'lambda) empty-context)))
+              (Fun (list (Var '#%0-lambda)) (Stx (Sym 'lambda) (EmptyCtx))))
 
 ;; test idempotence:
 
@@ -165,13 +165,13 @@
                  (Sym 'x))
 
 (check-re-expand '(syntax x)
-                 (Stx (Sym 'x) empty-context))
+                 (Stx (Sym 'x) (EmptyCtx)))
 
 (check-re-expand '(lambda (lambda) 'lambda)
                  (Fun (list (Var '#%1-lambda)) (Sym 'lambda)))
 
 (check-re-expand '(lambda (lambda) #'lambda)
-                 (Fun (list (Var '#%1-lambda)) (Stx (Sym 'lambda) empty-context)))
+                 (Fun (list (Var '#%1-lambda)) (Stx (Sym 'lambda) (EmptyCtx))))
 
 ;;; Evaluation
 

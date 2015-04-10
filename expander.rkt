@@ -70,7 +70,7 @@
      ;; Rename ids, extend the environment, expand the body:
      (define-values (state* new-names) (CompState-fresh-names state resolved-names))
      (define new-ids : (Listof Stx)
-       (map (lambda ((name : Symbol)) (Stx (Sym name) empty-context))
+       (map (lambda ((name : Symbol)) (Stx (Sym name) (EmptyCtx)))
             new-names))
      (define new-env : Env
        (for/fold ((new-env env))

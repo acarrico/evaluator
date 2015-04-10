@@ -9,7 +9,7 @@
  StxAtom StxAtom?
  StxSeq StxSeq?
  StxContent StxContent?
- Ctx Ctx? empty-context
+ Ctx Ctx? EmptyCtx EmptyCtx?
  Stx Stx?
  Id
  ResolvedId)
@@ -37,9 +37,10 @@
 (define-type StxContent (U StxSeq StxAtom))
 (define StxContent? (make-predicate StxContent))
 
-(define-type Ctx Sym)
+(struct EmptyCtx () #:transparent)
+
+(define-type Ctx (U EmptyCtx))
 (define Ctx? (make-predicate Ctx))
-(define empty-context (Sym 'context))
 
 (define (Ctx-merge (inner : Ctx) (outer : Ctx)) : Ctx
   (error "Ctx-merge: not implemented."))
