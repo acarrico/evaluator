@@ -7,7 +7,7 @@
  (struct-out Seq)
  (struct-out Sym)
  StxAtom StxAtom?
- StxSeq StxSeq?
+ StxSeq
  StxContent StxContent?
  Ctx Ctx? EmptyCtx EmptyCtx?
  Stx Stx?
@@ -26,15 +26,13 @@
       ((_ pat)
        #'(Stx (? StxAtom? pat) _)))))
 
-(define-type StxSeq (Seq Stx) #:omit-define-syntaxes)
-(define (StxSeq? x) (make-predicate (Seq Stx)))
 (define-match-expander StxSeq
   (lambda (stx)
     (syntax-case stx ()
       ((_ pat ...)
        #'(Stx (Seq (list pat ...)) _)))))
 
-(define-type StxContent (U StxSeq StxAtom))
+(define-type StxContent (U (Seq Stx) StxAtom))
 (define StxContent? (make-predicate StxContent))
 
 (struct EmptyCtx () #:transparent)
