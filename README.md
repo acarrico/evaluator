@@ -414,3 +414,25 @@ done, but it brings back my reflections in the expander section above,
 about what context the expander should provide to macros, and what
 mechanisms for building up syntax should be available, etc. I will
 again try to ignore these reflections.
+
+# Day 14 — More Syntax Language Updates
+
+By now I should be doing marking and renaming, but I'm still tinkering
+with my types. *StxSeq* and *StxAtom* had weird definitions; the match
+expanders didn't actually match the types. I've refined the datatypes
+while fixing that. The name *Atom* now only applies to the atoms
+allowed in syntax expressions, namely *Integer* and *Sym*. Having
+another distinction for atomic values is potentially confusing, and
+was not really being used anyway. I've also made the implementation of
+syntax-objects polymorphic, so there can be a type for indentifiers:
+*Id*. Likewise, syntax-object sequences, have type *Form*. Also,
+*StxContent* is now simply *Exp*, defined as *(U Atom (Seq Stx))*. Now
+*Stx* is an *Exp* together with *Ctx*, but behind the type are two
+variants, *LazyStx* and *StrictStx*. The *Stx* match expander pushes
+lazy context down.
+
+I had a little trouble here with Typed Racket. The error had the
+accessor *StrictStx-exp* used before it was defined. Moving *Exp*'s
+*make-predicate* down fixed that, so I've defined that whole cluster
+of types before any potential usage.
+

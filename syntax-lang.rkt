@@ -7,61 +7,60 @@
  (struct-out Seq)
  (struct-out Sym)
  Atom Atom?
- StxSeq
- StxContent StxContent?
+ Exp Exp?
  Ctx Ctx? EmptyCtx EmptyCtx?
  Stx Stx?
- Id
- ResolvedId)
+ Id Id? ResolvedId
+ Form Form?
+ )
 
 (struct (T) Seq ((elems : (Listof T))) #:transparent)
 
 (struct Sym ((name : Symbol)) #:transparent)
 
 (define-type Atom (U Sym Integer))
-(define Atom? (make-predicate Atom))
-
-(define-match-expander StxSeq
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ pat ...)
-       #'(Stx (Seq (list pat ...)) _)))))
-
-(define-type StxContent (U (Seq Stx) Atom))
-(define StxContent? (make-predicate StxContent))
-
+(define-type Exp (U Atom (Seq Stx)))
 (struct EmptyCtx () #:transparent)
-
 (define-type Ctx (U EmptyCtx))
+;; The context applies to every node in the expression:
+(struct (T) LazyStx ((strict : (StrictStx T)) (ctx : Ctx)) #:transparent)
+;; The context applies to the top node of the expression:
+(struct (T) StrictStx ((exp : T) (ctx : Ctx)) #:transparent)
+(define-type StxOf (All (T) (U (LazyStx T) (StrictStx T))))
+(define-type Stx (StxOf Exp) #:omit-define-syntaxes)
+
+(define-type Id (StxOf Sym) #:omit-define-syntaxes)
+(define-type Form (StxOf (Seq Stx)) #:omit-define-syntaxes)
+
+(define Atom? (make-predicate Atom))
+(define Exp? (make-predicate Exp))
 (define Ctx? (make-predicate Ctx))
-
-(define (Ctx-merge (inner : Ctx) (outer : Ctx)) : Ctx
-  (error "Ctx-merge: not implemented."))
-
-(struct StxLazy ((stx : StxStrict) (ctx : Ctx)) #:transparent)
-(struct StxStrict ((val : StxContent) (ctx : Ctx)) #:transparent)
-(define-type Stx (U StxLazy StxStrict) #:omit-define-syntaxes)
 (define Stx? (make-predicate Stx))
+(define Id? (make-predicate Id))
+(define Form? (make-predicate Form))
 
 (define-match-expander Stx
   (lambda (stx)
     (syntax-case stx ()
       ((_ val-pat ctx-pat)
-       #'(? Stx? (app Stx->StxStrict (StxStrict val-pat ctx-pat))))))
+       #'(? Stx? (app Stx->StrictStx (StrictStx val-pat ctx-pat))))))
   (lambda (stx)
     (syntax-case stx ()
-      ((_ more ...) #'(StxStrict more ...))
+      ((_ exp ctx) #'(StrictStx exp ctx))
       (_ #'StxStrict))))
 
-(define (Stx->StxStrict (i : Stx)) : StxStrict
+(define (Stx->StrictStx (i : Stx)) : (StrictStx Exp)
   (match i
-    ((? StxStrict? o) o)
-    ((StxLazy (StxStrict content ctx-inner) ctx-outer)
-     (StxStrict
-      (if (list? content)
-          (for/list ((stx content)) (StxLazy stx ctx-outer))
-          content)
+    ((? StrictStx? o) o)
+    ((LazyStx (StrictStx exp ctx-inner) ctx-outer)
+     (StrictStx
+      (if (list? exp)
+          (for/list ((stx exp)) (LazyStx stx ctx-outer))
+          exp)
       (Ctx-merge ctx-inner ctx-outer)))))
+
+(define (Ctx-merge (inner : Ctx) (outer : Ctx)) : Ctx
+  (error "Ctx-merge: not implemented."))
 
 (define (resolve (stx : Stx)) : Symbol
   (match stx
@@ -78,3 +77,9 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ pat) #'(Id (app resolve pat))))))
+
+(define-match-expander Form
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ pat ...)
+       #'(Stx (Seq (list pat ...)) _)))))

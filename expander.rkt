@@ -51,7 +51,7 @@
 (: let-syntax-transform Transform)
 (define (let-syntax-transform state env i)
   (match i
-    ((StxSeq _ (ResolvedId name) rhs body)
+    ((Form _ (ResolvedId name) rhs body)
      (define transformer (Ast-eval (parse rhs) (CompState-eval-env state)))
      (define env* (cons (list name (ValBinding transformer)) env))
      (expand state env* body))))
@@ -61,7 +61,7 @@
   (match i
     ((Stx (Seq (list lambda-id
                      (and (Stx _ vars-ctx)
-                          (StxSeq
+                          (Form
                            (ResolvedId #{resolved-names : (Listof Symbol)})
                            ...))
                      body))
@@ -90,7 +90,7 @@
 (: quote-transform Transform)
 (define (quote-transform state env i)
   (match i
-    ((StxSeq _ _)
+    ((Form _ _)
      (values state i))
     (_
      (error "expand: quote requires exactly one subform" i))))
@@ -137,7 +137,7 @@
     ;; dispatch on name: ISSUE: can't get 'or' pattern to typecheck here:
     ((ResolvedId #{name : Symbol})
      (expand/name initial-state env i name))
-    ((StxSeq (ResolvedId #{name : Symbol}) _ ...)
+    ((Form (ResolvedId #{name : Symbol}) _ ...)
      (expand/name initial-state env i name))
     ;; expand subforms:
     ((Stx (Seq (list #{stxes : (Listof Stx)} ...)) ctx)

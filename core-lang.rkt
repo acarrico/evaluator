@@ -70,7 +70,7 @@
      (Seq args))
     (((PrimOp 'stx-e) (list (Stx val ctx)))
      val)
-    (((PrimOp 'mk-stx) (list (? StxContent? val) (Stx _ ctx)))
+    (((PrimOp 'mk-stx) (list (? Exp? val) (Stx _ ctx)))
      (Stx val ctx))
     (((PrimOp '+) (list (? (make-predicate Integer) x) (? (make-predicate Integer) y)))
      (+ x y))

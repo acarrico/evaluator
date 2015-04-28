@@ -39,11 +39,11 @@
     ((list (primitive 'fun) (list (? symbol? #{vars : (Listof Symbol)}) ...) body)
      (Fun (map Var vars) (Ast-scan body)))
     ;; Scan Stx:
-    ((list (primitive 'stx) raw-content)
+    ((list (primitive 'stx) raw-exp)
      (Stx
-      (match (scan raw-content)
-        ((? StxContent? content) content)
-        (_ (error "scan: bad content for Stx" raw-content)))
+      (match (scan raw-exp)
+        ((? Exp? exp) exp)
+        (_ (error "scan: bad exp for Stx" raw-exp)))
       ;; NOTE: Ctx not a Val, so it can't be scanned, so don't bother
       ;; trying to read context:
       (EmptyCtx)))
