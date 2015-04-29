@@ -26,11 +26,11 @@
 (struct (T) LazyStx ((strict : (StrictStx T)) (ctx : Ctx)) #:transparent)
 ;; The context applies to the top node of the expression:
 (struct (T) StrictStx ((exp : T) (ctx : Ctx)) #:transparent)
-(define-type StxOf (All (T) (U (LazyStx T) (StrictStx T))))
-(define-type Stx (StxOf Exp) #:omit-define-syntaxes)
+(define-type UnionStx (All (T) (U (LazyStx T) (StrictStx T))))
+(define-type Stx (UnionStx Exp) #:omit-define-syntaxes)
 
-(define-type Id (StxOf Sym) #:omit-define-syntaxes)
-(define-type Form (StxOf (Seq Stx)) #:omit-define-syntaxes)
+(define-type Id (UnionStx Sym) #:omit-define-syntaxes)
+(define-type Form (UnionStx (Seq Stx)) #:omit-define-syntaxes)
 
 (define Atom? (make-predicate Atom))
 (define Exp? (make-predicate Exp))
