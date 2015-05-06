@@ -7,6 +7,7 @@ This is an expander and evaluator written to help (me) understand and
 explore *Binding as Sets of Scopes — Notes on a new model of macro
 expansion for Racket*, by Matthew Flatt.
 
+  * http://www.cs.utah.edu/~mflatt/scope-sets-4/
   * http://www.cs.utah.edu/~mflatt/scope-sets-3/
   * http://www.cs.utah.edu/~mflatt/scope-sets-2/
   * http://www.cs.utah.edu/~mflatt/scope-sets/
@@ -16,6 +17,9 @@ follow these steps.
 
 **Update:** It looks like there is another implementation out there,
   [sweet.js](https://github.com/mozilla/sweet.js/pull/461).
+
+**Update:** J. Ian Johnson is also working on a [typed racket
+  implementation of these models](https://github.com/ianj/macro-models).
 
 # Day 1 — Core Language and Evaluator
 
