@@ -59,12 +59,12 @@
 (: fun-transform Transform)
 (define (fun-transform state env i)
   (match i
-    ((Stx (Seq (list lambda-id
-                     (and (Stx _ vars-ctx)
-                          (Form
-                           (ResolvedId #{resolved-names : (Listof Symbol)})
-                           ...))
-                     body))
+    ((Stx (Seq lambda-id
+               (and (Stx _ vars-ctx)
+                    (Form
+                     (ResolvedId #{resolved-names : (Listof Symbol)})
+                     ...))
+               body)
           outer-ctx)
      #:when (distinct-names? resolved-names)
      ;; Rename ids, extend the environment, expand the body:
@@ -81,7 +81,7 @@
      ;; Construct the output:
      (values
       state**
-      (Stx (Seq (list lambda-id (Stx (Seq new-ids) vars-ctx) new-body)) outer-ctx)))
+      (Stx (Seq lambda-id (Stx (list->Seq new-ids) vars-ctx) new-body) outer-ctx)))
     (_
      (error
       "expand: lambda requires two subforms, a list of distinct vars and a body"
@@ -125,9 +125,9 @@
           ((Id _)
            (values initial-state id))
           ;; Variable reference is the operator in a sequence:
-          ((Stx (Seq (list _ #{args : (Listof Stx)} ...)) ctx)
+          ((Stx (Seq _ #{args : (Listof Stx)} ...) ctx)
            (define-values (state expanded-args) (expand-list initial-state env args))
-           (values state (Stx (Seq (cons id expanded-args)) ctx)))))))
+           (values state (Stx (list->Seq (cons id expanded-args)) ctx)))))))
     (_
      (error "expand: unbound identifier" i name))))
 
@@ -140,10 +140,10 @@
     ((Form (ResolvedId #{name : Symbol}) _ ...)
      (expand/name initial-state env i name))
     ;; expand subforms:
-    ((Stx (Seq (list #{stxes : (Listof Stx)} ...)) ctx)
+    ((Stx (Seq #{stxes : (Listof Stx)} ...) ctx)
      (define-values (state expanded-stxes)
        (expand-list initial-state env stxes))
-     (values state (Stx (Seq expanded-stxes) ctx)))
+     (values state (Stx (list->Seq expanded-stxes) ctx)))
     ;; not accepting other syntax (for now):
     (_
      (error "expand: unrecognized form" i))))

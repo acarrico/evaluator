@@ -43,7 +43,7 @@
 (check-equal? (scan '(#%ast (x y z)))
               (PrimAst (App (list (Var 'x) (Var 'y) (Var 'z)))))
 (check-equal? (scan '(x y z))
-              (Seq (list (Sym 'x) (Sym 'y) (Sym 'z))))
+              (Seq (Sym 'x) (Sym 'y) (Sym 'z)))
 (check-equal? (scan '#%cons) (PrimOp 'cons))
 (check-equal? (scan 1) 1)
 (check-equal? (scan '(#%stx 2))
@@ -103,7 +103,7 @@
               1)
 
 (check-equal? (parse (Stx-scan '(quote (x y z))))
-              (Seq (list (Sym 'x) (Sym 'y) (Sym 'z))))
+              (Seq (Sym 'x) (Sym 'y) (Sym 'z)))
 
 (check-equal? (parse (Stx-scan '(syntax (x y z))))
               (Stx-scan '(x y z)))

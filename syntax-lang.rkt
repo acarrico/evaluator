@@ -4,7 +4,7 @@
          (for-syntax typed/racket/base))
 
 (provide
- (struct-out Seq)
+ Seq list->Seq
  (struct-out Sym)
  Atom Atom?
  Exp Exp?
@@ -14,7 +14,8 @@
  Form Form?
  )
 
-(struct (T) Seq ((elems : (Listof T))) #:transparent)
+(struct (T) ListSeq ((elems : (Listof T))) #:transparent)
+(define-type Seq (All (T) (U (ListSeq T))) #:omit-define-syntaxes)
 
 (struct Sym ((name : Symbol)) #:transparent)
 
@@ -38,6 +39,19 @@
 (define Stx? (make-predicate Stx))
 (define Id? (make-predicate Id))
 (define Form? (make-predicate Form))
+
+(define list->Seq ListSeq)
+
+(define #:forall (T) (ListSeq* . (elems : T *)) : (ListSeq T) (ListSeq elems))
+(define-match-expander Seq
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ pats ...)
+       #'(? ListSeq? (app ListSeq-elems (list pats ...))))))
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ inits ...) #'(ListSeq* inits ...))
+      (_ #'ListSeq*))))
 
 (define-match-expander Stx
   (lambda (stx)
@@ -82,4 +96,4 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ pat ...)
-       #'(Stx (Seq (list pat ...)) _)))))
+       #'(Stx (Seq pat ...) _)))))

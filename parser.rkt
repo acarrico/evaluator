@@ -26,7 +26,7 @@
 
 (define (strip (i : Stx)) : Val
   (match i
-    ((Form elems ...) (Seq (map strip elems)))
+    ((Form elems ...) (list->Seq (map strip elems)))
     ((Stx atom _) atom)))
 
 (define (parse-quote (i : Stx)) : Ast

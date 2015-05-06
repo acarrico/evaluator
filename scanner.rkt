@@ -50,7 +50,7 @@
     ;; Scan PrimAst:
     ((list (primitive 'ast) ast) (PrimAst (Ast-scan ast)))
     ;; Scan Seq:
-    ((list subs ...) (Seq (map scan subs)))
+    ((list subs ...) (list->Seq (map scan subs)))
     ;; Scan PrimOp:
     ((primitive name) (PrimOp name))
     ;; Scan Sym
@@ -80,7 +80,7 @@
 (define (Stx-scan (i : Any)) : Stx
   (match i
     ;; Scan Seq:
-    ((list subs ...) (Stx (Seq (map Stx-scan subs)) (EmptyCtx)))
+    ((list subs ...) (Stx (list->Seq (map Stx-scan subs)) (EmptyCtx)))
     ;; Scan Sym
     ((? symbol? name) (Stx (Sym name) (EmptyCtx)))
     ;; Scan Integer
