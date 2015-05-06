@@ -415,24 +415,50 @@ about what context the expander should provide to macros, and what
 mechanisms for building up syntax should be available, etc. I will
 again try to ignore these reflections.
 
-# Day 14 — More Syntax Language Updates
+# Day 14, 15, 16 — More Syntax Language Updates
+
+This section's git tag is *more-syntax-language*
 
 By now I should be doing marking and renaming, but I'm still tinkering
 with my types. *StxSeq* and *StxAtom* had weird definitions; the match
 expanders didn't actually match the types. I've refined the datatypes
-while fixing that. The name *Atom* now only applies to the atoms
-allowed in syntax expressions, namely *Integer* and *Sym*. Having
-another distinction for atomic values is potentially confusing, and
-was not really being used anyway. I've also made the implementation of
-syntax-objects polymorphic, so there can be a type for indentifiers:
-*Id*. Likewise, syntax-object sequences, have type *Form*. Also,
-*StxContent* is now simply *Exp*, defined as *(U Atom (Seq Stx))*. Now
-*Stx* is an *Exp* together with *Ctx*, but behind the type are two
-variants, *LazyStx* and *StrictStx*. The *Stx* match expander pushes
-lazy context down.
+while fixing that.
+
+  * The name *Atom* now only applies to the atoms allowed in syntax
+    expressions, namely *Integer* and *Sym*. Having another
+    distinction for atomic values is potentially confusing, and was
+    not really being used anyway.
+
+  * I've made the implementation of syntax-objects polymorphic, so
+    there can be a type for indentifiers: *Id*. Likewise,
+    syntax-object sequences, have type *Form*.
+
+  * *StxContent* is now simply *Exp*, defined as *(U Atom (Seq Stx))*.
+
+  * *Stx* is an *Exp* together with *Ctx*, but behind the type are two
+    variants, *LazyStx* and *StrictStx*. The *Stx* match expander
+    pushes lazy context down.
+
+  * finally, *Seq* is more abstract, for example:
+
+```
+(Seq (list (Sym 'x) (Sym 'y) (Sym 'z))))
+```
+
+is now:
+
+```
+(Seq (Sym 'x) (Sym 'y) (Sym 'z)))
+```
+
+Likewise, the new *Seq* match expander directly supports list-like
+syntax, but it still binds matched elements in Racket lists (rather
+than *Seq*s). Racket's vector match expander works this way too. It
+doesn't seem like Racket has support for defining match expanders on
+new sequences without delegating the task to lists, but this is
+something I'll have to investigate.
 
 I had a little trouble here with Typed Racket. The error had the
 accessor *StrictStx-exp* used before it was defined. Moving *Exp*'s
 *make-predicate* down fixed that, so I've defined that whole cluster
 of types before any potential usage.
-
