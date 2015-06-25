@@ -7,6 +7,7 @@ This is an expander and evaluator written to help (me) understand and
 explore *Binding as Sets of Scopes — Notes on a new model of macro
 expansion for Racket*, by Matthew Flatt.
 
+  * http://www.cs.utah.edu/~mflatt/scope-sets-5/
   * http://www.cs.utah.edu/~mflatt/scope-sets-4/
   * http://www.cs.utah.edu/~mflatt/scope-sets-3/
   * http://www.cs.utah.edu/~mflatt/scope-sets-2/
