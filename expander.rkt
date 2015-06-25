@@ -22,23 +22,31 @@
                    (eval-env : AstEnv))
   #:transparent)
 
-(define (build-fresh-name (name : Symbol) (index : Natural)) : Symbol
-  (string->symbol
-   (format "#%~a-~a"
-           index
-           (match (symbol->string name)
-             ((regexp #px"\\#\\%(\\d+)-(.*)" (list _ _ base)) base)
-             (base base)))))
+(define (build-fresh-name (name : Sym) (index : Natural)) : Sym
+  (Sym
+   (string->symbol
+    (format "#%~a-~a"
+            index
+            (match (symbol->string (Sym-name name))
+              ((regexp #px"\\#\\%(\\d+)-(.*)" (list _ _ base)) base)
+              (base base))))))
 
-(define (CompState-fresh-name (state : CompState) (name : Symbol))
-  : (Values CompState Symbol)
+(define (CompState-fresh-mark (state : CompState))
+  : (Values CompState Mark)
+  (define index (CompState-next-fresh state))
+  (values
+   (struct-copy CompState state (next-fresh (+ index 1)))
+   index))
+
+(define (CompState-fresh-name (state : CompState) (name : Sym))
+  : (Values CompState Sym)
   (define index (CompState-next-fresh state))
   (values
    (struct-copy CompState state (next-fresh (+ index 1)))
    (build-fresh-name name index)))
 
-(define (CompState-fresh-names (state : CompState) (names : (Listof Symbol)))
-  : (Values CompState (Listof Symbol))
+(define (CompState-fresh-names (state : CompState) (names : (Listof Sym)))
+   : (Values CompState (Listof Sym))
   (define start (CompState-next-fresh state))
   (values
    (struct-copy CompState state (next-fresh (+ start (length names))))
@@ -51,7 +59,7 @@
 (: let-syntax-transform Transform)
 (define (let-syntax-transform state env i)
   (match i
-    ((Form _ (ResolvedId name) rhs body)
+    ((Form _ (ResolvedId (Sym name)) rhs body)
      (define transformer (Ast-eval (parse rhs) (CompState-eval-env state)))
      (define env* (cons (list name (ValBinding transformer)) env))
      (expand state env* body))))
@@ -60,28 +68,37 @@
 (define (fun-transform state env i)
   (match i
     ((Stx (Seq lambda-id
-               (and (Stx _ vars-ctx)
+               (and vars
                     (Form
-                     (ResolvedId #{resolved-names : (Listof Symbol)})
+                     (ResolvedId #{resolved-names : (Listof Sym)})
                      ...))
                body)
           outer-ctx)
      #:when (distinct-names? resolved-names)
-     ;; Rename ids, extend the environment, expand the body:
-     (define-values (state* new-names) (CompState-fresh-names state resolved-names))
-     (define new-ids : (Listof Stx)
-       (map (lambda ((name : Symbol)) (Stx (Sym name) (EmptyCtx)))
-            new-names))
+
+     ;; Rename variables:
+     (define-values (state* fresh-names)
+       (CompState-fresh-names state resolved-names))
+     (match-define (list renamed-vars renamed-body)
+       (rename-stxes resolved-names fresh-names (list vars body)))
+
+     ;; Extend the environment:
+     (match-define (Stx (Seq new-ids ...) _) renamed-vars)
+
      (define new-env : Env
        (for/fold ((new-env env))
-                 ((resolved-name resolved-names) (new-id new-ids))
-         (cons (list resolved-name (VarBinding new-id)) new-env)))
+                 ((fresh-name fresh-names) (new-id new-ids))
+         (cons (list (Sym-name fresh-name) (VarBinding new-id)) new-env)))
+
+     ;; Expand the body:
      (define-values (state** new-body)
-       (expand state* new-env body))
+       (expand state* new-env renamed-body))
+
      ;; Construct the output:
      (values
       state**
-      (Stx (Seq lambda-id (Stx (list->Seq new-ids) vars-ctx) new-body) outer-ctx)))
+      (Stx (Seq lambda-id renamed-vars new-body) outer-ctx)))
+
     (_
      (error
       "expand: lambda requires two subforms, a list of distinct vars and a body"
@@ -94,6 +111,16 @@
      (values state i))
     (_
      (error "expand: quote requires exactly one subform" i))))
+
+(define (expand-macro (transform : Closure) (initial-state : CompState) (env : Env) (i : Stx))
+  : (Values CompState Stx)
+  (define-values (next-state mark) (CompState-fresh-mark initial-state))
+  ;; Mark input before applying the transformer:
+  (define o (Ast-apply-values transform (list (Stx-mark i mark))))
+  (if (Stx? o)
+      ;; Mark output after applying the transformer:
+      (expand next-state env (Stx-mark o mark))
+      (error "expand: macro transformer did not return syntax" o)))
 
 (define (expand-list (initial-state : CompState) (env : Env) (stxes : (Listof Stx)))
   (define-values (state rev-expanded-stxes)
@@ -113,10 +140,7 @@
        ((TransformBinding transform)
         (transform initial-state env i))
        ((ValBinding (and (Closure (Fun (list _) _) _) transform))
-        (define o (Ast-apply-values transform (list i)))
-        (if (Stx? o)
-            (expand initial-state env o)
-            (error "expand: macro transformer did not return syntax" o)))
+        (expand-macro transform initial-state env i))
        ((ValBinding _)
         (error "expand: arbitrary ValBinding not supported."))
        ((VarBinding id)
@@ -135,9 +159,9 @@
 (define (expand initial-state env i)
   (match i
     ;; dispatch on name: ISSUE: can't get 'or' pattern to typecheck here:
-    ((ResolvedId #{name : Symbol})
+    ((ResolvedId (Sym #{name : Symbol}))
      (expand/name initial-state env i name))
-    ((Form (ResolvedId #{name : Symbol}) _ ...)
+    ((Form (ResolvedId (Sym #{name : Symbol})) _ ...)
      (expand/name initial-state env i name))
     ;; expand subforms:
     ((Stx (Seq #{stxes : (Listof Stx)} ...) ctx)

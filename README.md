@@ -466,3 +466,24 @@ I had a little trouble here with Typed Racket. The error had the
 accessor *StrictStx-exp* used before it was defined. Moving *Exp*'s
 *make-predicate* down fixed that, so I've defined that whole cluster
 of types before any potential usage.
+
+# Day 17, 18, 19, 20, 21 — Marks and Substitutions.
+
+This section's git tag is *mark-subst*
+
+I'm picking this project up here after about a month off. This section
+takes care of marks and substitutions and properly resolving Ids. It
+is a little tedious to program. A good resource is Robert Hieb and
+Kent Dybvig's 1992 distribution of syntax-case called *psyntax*.
+
+At this point, macro applications are marked before and after
+expansion, and *lambda* does renaming. One hygiene problem remains: I
+haven't added renaming to *let-syntax*.
+
+For testing, *check-expand* and *check-re-expand* compare with an
+*Ast-equal?* predicate, which does equality mod renaming, but
+*Ast-equal?* doesn't compare literal syntax, so I've had to comment
+out expansion tests like ```(syntax x)```. These were more reasonable
+to check in the unhygienic expander because they carried no context.
+
+The *thunk* macro test passes with the hygienic result this time :).

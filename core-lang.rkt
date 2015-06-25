@@ -5,7 +5,7 @@
 
 (provide
  (all-from-out "syntax-lang.rkt")
- Ast (struct-out Var) (struct-out App)
+ Ast Ast? (struct-out Var) (struct-out App)
  Val Val? (struct-out Fun)
  (struct-out PrimOp)
  (struct-out PrimAst) (struct-out Closure)
@@ -22,6 +22,7 @@
 (struct PrimOp ((name : Symbol)) #:transparent)
 (struct PrimAst ((ast : Ast)) #:transparent)
 (struct Closure ((fun : Fun) (env : AstEnv)) #:transparent)
+(define Ast? (make-predicate Ast))
 
 (define-type AstEnv (Listof (List Var Val)))
 

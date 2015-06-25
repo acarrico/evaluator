@@ -110,17 +110,48 @@
 
 ;; expander
 
+(define (Ast-equal? x y) : Boolean
+  (and (Ast? x)
+       (Ast? y)
+       (let recurse ((x : Ast x)
+                     (y : Ast y)
+                     (env : (Listof (Pairof Symbol Symbol)) '()))
+         (match* (x y)
+           (((Var x-name) (Var y-name))
+            (let ((binding (assq x-name env)))
+              (and binding (eq? y-name (cdr binding)))))
+           (((App x-args) (App y-args))
+            (and (= (length x-args) (length y-args))
+                 (for/and ((x-arg x-args)
+                           (y-arg y-args))
+                   (recurse x-arg y-arg env))))
+           (((Fun x-vars x-body) (Fun y-vars y-body))
+            (and (= (length x-vars) (length y-vars))
+                 (recurse x-body y-body
+                          (for/fold ((env env))
+                                    ((x-var x-vars) (y-var y-vars))
+                            (cons (cons (Var-name x-var) (Var-name y-var)) env)))))
+           (((? Atom? x) (? Atom? y))
+            ;; ISSUE: true now, but probably should have Atom=?
+            (equal? x y))
+           (((Sym x) (Sym y))
+            (eq? x y))
+           ((_ _)
+            (error "Ast-equal?: unrecognized Ast (fixme, probably)" x y))))))
+
 (define (check-expand i o)
-  (define-values (state expanded) (expand initial-state initial-expand-env (Stx-scan i)))
-  (check-equal? (parse expanded) o))
+  (define-values (state expanded)
+    (expand initial-state initial-expand-env (Stx-scan i)))
+  (check Ast-equal? (parse expanded) o))
 
 (define (check-re-expand i o)
-  (define-values (state expanded) (expand initial-state initial-expand-env (Stx-scan i)))
+  (define-values (state expanded)
+    (expand initial-state initial-expand-env (Stx-scan i)))
   (define-values (state* expanded*) (expand state initial-expand-env expanded))
-  (check-equal? (parse expanded*) o))
+  (check Ast-equal? (parse expanded*) o))
 
 (check-expand '(lambda (x) x)
-              (Fun (list (Var '#%0-x)) (Var '#%0-x)))
+              (Fun (list (Var 'x)) (Var 'x)))
 
 (check-expand '(lambda (lambda) lambda)
               (Fun (list (Var '#%0-lambda)) (Var '#%0-lambda)))
@@ -136,13 +167,15 @@
 (check-expand '(quote x)
               (Sym 'x))
 
-(check-expand '(syntax x)
+;; With the hygienic expander, we easily can't check literal syntax
+;; anymore:
+#;(check-expand '(syntax x)
               (Stx (Sym 'x) (EmptyCtx)))
 
 (check-expand '(lambda (lambda) 'lambda)
               (Fun (list (Var '#%0-lambda)) (Sym 'lambda)))
 
-(check-expand '(lambda (lambda) #'lambda)
+#;(check-expand '(lambda (lambda) #'lambda)
               (Fun (list (Var '#%0-lambda)) (Stx (Sym 'lambda) (EmptyCtx))))
 
 ;; test idempotence:
@@ -164,13 +197,13 @@
 (check-re-expand '(quote x)
                  (Sym 'x))
 
-(check-re-expand '(syntax x)
+#;(check-re-expand '(syntax x)
                  (Stx (Sym 'x) (EmptyCtx)))
 
 (check-re-expand '(lambda (lambda) 'lambda)
                  (Fun (list (Var '#%1-lambda)) (Sym 'lambda)))
 
-(check-re-expand '(lambda (lambda) #'lambda)
+#;(check-re-expand '(lambda (lambda) #'lambda)
                  (Fun (list (Var '#%1-lambda)) (Stx (Sym 'lambda) (EmptyCtx))))
 
 ;;; Evaluation
@@ -239,7 +272,7 @@
                        e))
               (((lambda (a) (thunk (+ a '1))) '5) '0))
  ;; Unhygienic answer:
- '1
+ ;;'1
  ;; Hygienic answer:
- ;; '6
+ '6
  )

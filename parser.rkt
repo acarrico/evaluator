@@ -9,16 +9,16 @@
  distinct-names?
  parse)
 
-(define (distinct-names? (names : (Listof Symbol)))
+(define (distinct-names? (names : (Listof Sym)))
   ;; ISSUE: not the greatest algorithm of all time:
-  (= (length (remove-duplicates names))
+  (= (length (remove-duplicates (map Sym-name names)))
      (length names)))
 
 (define (parse-lambda (i : Stx)) : Ast
   (match i
-    ((Form _ (Form (ResolvedId #{names : (Listof Symbol)}) ...) (? Stx? body))
+    ((Form _ (Form (ResolvedId #{names : (Listof Sym)}) ...) (? Stx? body))
      #:when (distinct-names? names)
-     (Fun (map Var names) (parse body)))
+     (Fun (map (compose Var Sym-name) names) (parse body)))
     (_
      (error
       "parse: lambda requires two subforms, a list of distinct vars and a body"
@@ -48,14 +48,14 @@
 
 (define (parse (i : Stx)) : Ast
   (match i
-    ((ResolvedId 'lambda) (parse-lambda i))
-    ((Form (ResolvedId 'lambda) _ ...) (parse-lambda i))
-    ((ResolvedId 'quote) (parse-quote i))
-    ((Form (ResolvedId 'quote) _ ...) (parse-quote i))
-    ((ResolvedId 'syntax) (parse-syntax i))
-    ((Form (ResolvedId 'syntax) _ ...) (parse-syntax i))
+    ((ResolvedId (Sym 'lambda)) (parse-lambda i))
+    ((Form (ResolvedId (Sym 'lambda)) _ ...) (parse-lambda i))
+    ((ResolvedId (Sym 'quote)) (parse-quote i))
+    ((Form (ResolvedId (Sym 'quote)) _ ...) (parse-quote i))
+    ((ResolvedId (Sym 'syntax)) (parse-syntax i))
+    ((Form (ResolvedId (Sym 'syntax)) _ ...) (parse-syntax i))
     ((Form _ ...) (parse-application i))
-    ((ResolvedId name) (Var name))
+    ((ResolvedId (Sym name)) (Var name))
     ;; not accepting other values (for now):
     (_
      (error "parse: unrecognized form" i))))
