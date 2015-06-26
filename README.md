@@ -488,3 +488,14 @@ out expansion tests like ```(syntax x)```. These were more reasonable
 to check in the unhygienic expander because they carried no context.
 
 The *thunk* macro test passes with the hygienic result this time :).
+
+# Day 22 — Basic Hygienic Expander
+
+This section's git tag is *basic-hygienic*
+
+This session completes the basic hygienic expander. Renaming the bound
+Id in the *let-syntax* transformer was the missing piece, an easy
+change since all the machinery was in place for *lambda* last session.
+
+To finish off, I've added the "Scope Examples" from 3.6.1 of *Macros
+that Work Together* to the tests.
