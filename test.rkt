@@ -276,3 +276,28 @@
  ;; Hygienic answer:
  '6
  )
+
+;; Here are the "Scope Examples" from 3.6.1 of *Macros that Work
+;; Together*:
+(check-eval
+ '(((lambda (x)
+      (let-syntax m (lambda (stx) #'x)
+        (lambda (x) (+ (m) x))))
+    '1)
+   '42)
+ '43)
+
+(check-eval
+ '(((lambda (x)
+      (let-syntax n (lambda (stx)
+                      ; expand (n e) to (lambda (x) (+ e x))
+                      (mk-stx
+                       (list #'lambda (mk-stx (list #'x) stx)
+                             (mk-stx
+                              (list #'+ (car (cdr (stx-e stx))) #'x)
+                              stx))
+                       stx))
+        (n '1)))
+    '1)
+   '42)
+ '43)
