@@ -59,10 +59,16 @@
 (: let-syntax-transform Transform)
 (define (let-syntax-transform state env i)
   (match i
-    ((Form _ (ResolvedId (Sym name)) rhs body)
-     (define transformer (Ast-eval (parse rhs) (CompState-eval-env state)))
-     (define env* (cons (list name (ValBinding transformer)) env))
-     (expand state env* body))))
+    ((Form _ (ResolvedId resolved-name) rhs body)
+     (define transformer
+       (Ast-eval (parse rhs) (CompState-eval-env state)))
+     (define-values (state* fresh-name)
+       (CompState-fresh-name state resolved-name))
+     (match-define (list renamed-body)
+       (rename-stxes (list resolved-name) (list fresh-name) (list body)))
+
+     (define env* (cons (list (Sym-name fresh-name) (ValBinding transformer)) env))
+     (expand state* env* renamed-body))))
 
 (: fun-transform Transform)
 (define (fun-transform state env i)
