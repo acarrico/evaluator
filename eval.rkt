@@ -7,34 +7,34 @@
  Ast-eval
  Ast-apply-values)
 
-(define (Ast-eval (ast : Ast) (env : AstEnv)) : Val
+(define (Ast-eval (ast : Ast) (ast-env : AstEnv)) : Val
   (match ast
-    ((App (list (Closure (Fun (list vars ...) body) env*) args ...))
+    ((App (list (Closure (Fun (list vars ...) body) ast-env*) args ...))
      (unless (= (length vars) (length args))
        (error "Ast-eval: wrong number of arguments" vars args))
-     (define env** : AstEnv
-       (for/fold ((env** env*))
+     (define ast-env** : AstEnv
+       (for/fold ((ast-env** ast-env*))
                  ((var vars) (arg args))
-         (cons (list var (Ast-eval arg env)) env**)))
-     (Ast-eval body env**))
+         (cons (list var (Ast-eval arg ast-env)) ast-env**)))
+     (Ast-eval body ast-env**))
     ((App (list (? PrimOp? op) args ...))
-     (Prim-eval op (for/list ((arg args)) (Ast-eval arg env))))
+     (Prim-eval op (for/list ((arg args)) (Ast-eval arg ast-env))))
     ((App (list op-ast args ...))
-     (match (Ast-eval op-ast env)
+     (match (Ast-eval op-ast ast-env)
        ((? (make-predicate (U Closure PrimOp)) op)
-        (Ast-eval (App (cons op args)) env))
+        (Ast-eval (App (cons op args)) ast-env))
        (op
         (error "Ast-eval: operator must be a Closure or PrimOp" op))))
     ((Var name)
-     (let loop ((env env))
-       (if (pair? env)
-           (let ((binding (car env)))
+     (let loop ((ast-env ast-env))
+       (if (pair? ast-env)
+           (let ((binding (car ast-env)))
              (if (eq? name (Var-name (car binding)))
                  (cadr binding)
-                 (loop (cdr env))))
+                 (loop (cdr ast-env))))
            (error "Ast-eval: variable not in current environment" name))))
     ((? Fun? fn)
-     (Closure fn env))
+     (Closure fn ast-env))
     ((? Val? val)
      val)))
 
@@ -68,11 +68,11 @@
 (define (Ast-apply-values (closure : Closure) (args : (Listof Val)))
   ;; NOTE: this does not evaluate the operator or the args.
   (match closure
-    ((Closure (Fun (list vars ...) body) env)
+    ((Closure (Fun (list vars ...) body) ast-env)
      (unless (= (length vars) (length args))
        (error "Ast-apply: wrong number of arguments" vars args))
-     (define env* : AstEnv
-       (for/fold ((env env))
+     (define ast-env* : AstEnv
+       (for/fold ((ast-env ast-env))
                  ((var vars) (arg args))
-         (cons (list var arg) env)))
-     (Ast-eval body env*))))
+         (cons (list var arg) ast-env)))
+     (Ast-eval body ast-env*))))
