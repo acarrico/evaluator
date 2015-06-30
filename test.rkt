@@ -1,6 +1,7 @@
 #lang typed/racket/base
 
-(require "core-lang.rkt" "scanner.rkt" "parser.rkt" "expander.rkt"
+(require "core-lang.rkt" "scanner.rkt" "parser.rkt"
+         "env.rkt" "eval.rkt" "expander.rkt"
          racket/match)
 
 (require typed/rackunit)

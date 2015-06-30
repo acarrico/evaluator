@@ -3,24 +3,14 @@
 (require (for-syntax typed/racket/base)
          racket/match
          "core-lang.rkt"
-         "parser.rkt")
+         "parser.rkt"
+         "env.rkt"
+         "eval.rkt")
 
-(provide Env CompState TransformBinding
-         VarBinding
-         fun-transform
+(provide fun-transform
          quote-transform
          let-syntax-transform
          expand)
-
-(define-type Transform (-> CompState Env Stx (Values CompState Stx)))
-(struct TransformBinding ((transform : Transform)) #:transparent)
-(struct ValBinding ((val : Val)) #:transparent)
-(struct VarBinding ((id : Stx)) #:transparent)
-(define-type Binding (U TransformBinding ValBinding VarBinding))
-(define-type Env (Listof (List Symbol Binding)))
-(struct CompState ((next-fresh : Natural)
-                   (eval-env : AstEnv))
-  #:transparent)
 
 (define (build-fresh-name (name : Sym) (index : Natural)) : Sym
   (Sym
