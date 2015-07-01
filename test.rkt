@@ -53,7 +53,7 @@
 ;; Ast Evaluator:
 
 (define (check-Ast-eval i o)
-  (check-equal? (Ast-eval (Ast-scan i) initial-eval-env) (scan o)))
+  (check-equal? (Ast-eval (Ast-scan i) initial-eval-env '()) (scan o)))
 
 (check-Ast-eval 'cons
                 '#%cons)
@@ -212,7 +212,7 @@
 (define (eval i)
   (define-values (state expanded)
     (expand initial-state initial-expand-env (Stx-scan i)))
-  (Ast-eval (parse expanded) initial-eval-env))
+  (Ast-eval (parse expanded) initial-eval-env '()))
 
 (define (check-eval i o)
   (check-equal? (eval i) (scan o)))

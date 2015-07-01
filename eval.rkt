@@ -7,7 +7,7 @@
  Ast-eval
  Ast-apply-values)
 
-(define (Ast-eval (ast : Ast) (ast-env : AstEnv)) : Val
+(define (Ast-eval (ast : Ast) (ast-env : AstEnv) (env : Env)) : Val
   (match ast
     ((App (list (Closure (Fun (list vars ...) body) ast-env*) args ...))
      (unless (= (length vars) (length args))
@@ -15,14 +15,14 @@
      (define ast-env** : AstEnv
        (for/fold ((ast-env** ast-env*))
                  ((var vars) (arg args))
-         (cons (list var (Ast-eval arg ast-env)) ast-env**)))
-     (Ast-eval body ast-env**))
+         (cons (list var (Ast-eval arg ast-env env)) ast-env**)))
+     (Ast-eval body ast-env** env))
     ((App (list (? PrimOp? op) args ...))
-     (Prim-eval op (for/list ((arg args)) (Ast-eval arg ast-env))))
+     (Prim-eval op (for/list ((arg args)) (Ast-eval arg ast-env env))))
     ((App (list op-ast args ...))
-     (match (Ast-eval op-ast ast-env)
+     (match (Ast-eval op-ast ast-env env)
        ((? (make-predicate (U Closure PrimOp)) op)
-        (Ast-eval (App (cons op args)) ast-env))
+        (Ast-eval (App (cons op args)) ast-env env))
        (op
         (error "Ast-eval: operator must be a Closure or PrimOp" op))))
     ((Var name)
@@ -65,7 +65,7 @@
     ((_ _)
      (error "Prim-eval bad primitive form" op args))))
 
-(define (Ast-apply-values (closure : Closure) (args : (Listof Val)))
+(define (Ast-apply-values (closure : Closure) (args : (Listof Val)) (env : Env))
   ;; NOTE: this does not evaluate the operator or the args.
   (match closure
     ((Closure (Fun (list vars ...) body) ast-env)
@@ -75,4 +75,4 @@
        (for/fold ((ast-env ast-env))
                  ((var vars) (arg args))
          (cons (list var arg) ast-env)))
-     (Ast-eval body ast-env*))))
+     (Ast-eval body ast-env* env))))
