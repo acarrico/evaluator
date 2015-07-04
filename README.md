@@ -499,3 +499,32 @@ change since all the machinery was in place for *lambda* last session.
 
 To finish off, I've added the "Scope Examples" from 3.6.1 of *Macros
 that Work Together* to the tests.
+
+# Day 23, 24 — syntax-local-value
+
+This section's git tag is *lvalue*
+
+Previously, the compile time environment was exclusive to the
+expander. In this section, it is made available during the application
+of macro transformers with a new primitive: *lvalue* (aka
+*syntax-local-value*).
+
+To manage the new dependencies, the compile time environment and
+evaluator have been split into new modules. The compile time
+environment is now passed to evaluator by the expander. At runtime,
+the evaluator just gets an empty compile time environment.
+
+The evaluation environment for macro expanders (in *CompState*) now
+has a binding for *lvalue*, but not the runtime evaluation
+environment:
+
+```
+(check-exn #rx"expand: unbound identifier*" (lambda () (eval 'lvalue)))
+
+(check-eval '((lambda (x)
+                (let-syntax n #'x
+                  (let-syntax m (lambda (stx) (lvalue #'n))
+                    m)))
+              '42)
+            42)
+```
