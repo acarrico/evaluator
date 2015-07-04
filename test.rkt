@@ -6,7 +6,12 @@
 
 (require typed/rackunit)
 
-(define (make-initial-state (src-bindings : (Listof (List Symbol Any))))
+(define (make-initial-state
+         ;; Initial bindings available during evaluation:
+         (src-bindings : (Listof (List Symbol Any)))
+         ;; More bindings only available during the application of a
+         ;; macro transformer:
+         (t-src-bindings : (Listof (List Symbol Any))))
   : (Values AstEnv Env CompState)
   (define core-expand-env
     (list (list 'lambda (TransformBinding fun-transform))
@@ -22,7 +27,13 @@
          (values
           (cons (list (Var name) (scan val)) eval-env)
           (cons (list name (VarBinding (Stx (Sym name) (EmptyCtx)))) expand-env))))))
-  (values eval-env expand-env (CompState 0 eval-env)))
+  (define t-eval-env
+    (for/fold ((#{t-eval-env : AstEnv} eval-env))
+              ((#{src-binding : (List Symbol Any)} t-src-bindings))
+      (match src-binding
+        ((list name val)
+          (cons (list (Var name) (scan val)) t-eval-env)))))
+  (values eval-env expand-env (CompState 0 t-eval-env)))
 
 (define-values (initial-eval-env initial-expand-env initial-state)
   (make-initial-state '((cons #%cons)
@@ -32,7 +43,8 @@
                         (list #%list)
                         (stx-e #%stx-e)
                         (mk-stx #%mk-stx)
-                        (+ #%+))))
+                        (+ #%+))
+                      '((lvalue #%lvalue))))
 
 ;; Scanner:
 (check-equal? (scan 'x)
@@ -302,3 +314,17 @@
     '1)
    '42)
  '43)
+
+;; The lvalue primitive should only be available during the
+;; application of a macro transformer:
+(check-exn #rx"expand: unbound identifier*" (lambda () (eval 'lvalue)))
+
+;; Testing the lvalue primitive:
+(check-eval '((lambda (x)
+                (let-syntax n #'x
+                  (let-syntax m (lambda (stx) (lvalue #'n))
+                    m)))
+              '42)
+            42)
+
+

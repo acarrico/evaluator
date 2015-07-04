@@ -17,6 +17,19 @@
                  ((var vars) (arg args))
          (cons (list var (Ast-eval arg ast-env env)) ast-env**)))
      (Ast-eval body ast-env** env))
+    ((App (list (PrimOp 'lvalue) arg-ast))
+     (define arg (Ast-eval arg-ast ast-env env))
+     (match arg
+       ((ResolvedId (Sym name))
+        (define binding (assq name env))
+        (match binding
+          ((list _ (ValBinding val)) val)
+          (_
+           (error "lvalue: the Id must be bound to a value in the compile time environment" name env))))
+       (_
+        (error "lvalue takes an Id"))))
+    ((App (list (PrimOp 'lvalue) _ ...))
+     (error "lvalue takes one argument"))
     ((App (list (? PrimOp? op) args ...))
      (Prim-eval op (for/list ((arg args)) (Ast-eval arg ast-env env))))
     ((App (list op-ast args ...))
