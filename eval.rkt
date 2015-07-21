@@ -21,9 +21,8 @@
      (define arg (Ast-eval arg-ast ast-env env))
      (match arg
        ((ResolvedId (Sym name))
-        (define binding (assq name env))
-        (match binding
-          ((list _ (ValBinding val)) val)
+        (match (Env-ref env name)
+          ((ValBinding val) val)
           (_
            (error "lvalue: the Id must be bound to a value in the compile time environment" name env))))
        (_

@@ -57,7 +57,7 @@
      (match-define (list renamed-body)
        (rename-stxes (list resolved-name) (list fresh-name) (list body)))
 
-     (define env* (cons (list (Sym-name fresh-name) (ValBinding transformer)) env))
+     (define env* (Env-set env (Sym-name fresh-name) (ValBinding transformer)))
      (expand state* env* renamed-body))))
 
 (: fun-transform Transform)
@@ -84,7 +84,7 @@
      (define new-env : Env
        (for/fold ((new-env env))
                  ((fresh-name fresh-names) (new-id new-ids))
-         (cons (list (Sym-name fresh-name) (VarBinding new-id)) new-env)))
+         (Env-set new-env (Sym-name fresh-name) (VarBinding new-id))))
 
      ;; Expand the body:
      (define-values (state** new-body)
@@ -130,25 +130,23 @@
 
 (define (expand/name (initial-state : CompState) (env : Env) (i : Stx) (name : Symbol))
   : (Values CompState Stx)
-  (match (assq name env)
-    ((list _ binding)
-     (match binding
-       ((TransformBinding transform)
-        (transform initial-state env i))
-       ((ValBinding (and (Closure (Fun (list _) _) _) transform))
-        (expand-macro transform initial-state env i))
-       ((ValBinding _)
-        (error "expand: arbitrary ValBinding not supported."))
-       ((VarBinding id)
-        (match i
-          ;; Lone variable reference:
-          ((Id _)
-           (values initial-state id))
-          ;; Variable reference is the operator in a sequence:
-          ((Stx (Seq _ #{args : (Listof Stx)} ...) ctx)
-           (define-values (state expanded-args) (expand-list initial-state env args))
-           (values state (Stx (list->Seq (cons id expanded-args)) ctx)))))))
-    (_
+  (match (Env-ref env name)
+    ((TransformBinding transform)
+     (transform initial-state env i))
+    ((ValBinding (and (Closure (Fun (list _) _) _) transform))
+     (expand-macro transform initial-state env i))
+    ((ValBinding _)
+     (error "expand: arbitrary ValBinding not supported."))
+    ((VarBinding id)
+     (match i
+       ;; Lone variable reference:
+       ((Id _)
+        (values initial-state id))
+       ;; Variable reference is the operator in a sequence:
+       ((Stx (Seq _ #{args : (Listof Stx)} ...) ctx)
+        (define-values (state expanded-args) (expand-list initial-state env args))
+        (values state (Stx (list->Seq (cons id expanded-args)) ctx)))))
+    ((Unbound)
      (error "expand: unbound identifier" i name))))
 
 (: expand Transform)

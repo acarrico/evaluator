@@ -13,11 +13,15 @@
          ;; macro transformer:
          (t-src-bindings : (Listof (List Symbol Any))))
   : (Values AstEnv Env CompState)
-  (define core-expand-env
-    (list (list 'lambda (TransformBinding fun-transform))
-          (list 'quote (TransformBinding quote-transform))
-          (list 'syntax (TransformBinding quote-transform))
-          (list 'let-syntax (TransformBinding let-syntax-transform))))
+  (define core-expand-env : Env
+    (for/fold ((env (empty-Env)))
+              ((entry : (List Symbol Binding)
+                      (list (list 'lambda (TransformBinding fun-transform))
+                            (list 'quote (TransformBinding quote-transform))
+                            (list 'syntax (TransformBinding quote-transform))
+                            (list 'let-syntax (TransformBinding let-syntax-transform)))))
+      (match entry ((list name binding)
+                    (Env-set env name binding)))))
   (define-values (eval-env expand-env)
     (for/fold ((#{eval-env : AstEnv} '())
                (#{expand-env : Env} core-expand-env))
@@ -26,7 +30,7 @@
         ((list name val)
          (values
           (cons (list (Var name) (scan val)) eval-env)
-          (cons (list name (VarBinding (Stx (Sym name) (EmptyCtx)))) expand-env))))))
+          (Env-set expand-env name (VarBinding (Stx (Sym name) (EmptyCtx)))))))))
   (define t-eval-env
     (for/fold ((#{t-eval-env : AstEnv} eval-env))
               ((#{src-binding : (List Symbol Any)} t-src-bindings))
@@ -65,7 +69,7 @@
 ;; Ast Evaluator:
 
 (define (check-Ast-eval i o)
-  (check-equal? (Ast-eval (Ast-scan i) initial-eval-env '()) (scan o)))
+  (check-equal? (Ast-eval (Ast-scan i) initial-eval-env (empty-Env)) (scan o)))
 
 (check-Ast-eval 'cons
                 '#%cons)
@@ -224,7 +228,7 @@
 (define (eval i)
   (define-values (state expanded)
     (expand initial-state initial-expand-env (Stx-scan i)))
-  (Ast-eval (parse expanded) initial-eval-env '()))
+  (Ast-eval (parse expanded) initial-eval-env (empty-Env)))
 
 (define (check-eval i o)
   (check-equal? (eval i) (scan o)))

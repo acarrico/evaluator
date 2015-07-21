@@ -528,3 +528,20 @@ environment:
               '42)
             42)
 ```
+
+# Day 25 — local expand
+
+This section's git tag is *lexpand*
+
+There is a small error in the *nostops* function in *Macros that Work
+Together* that confused me a little bit. When it clears the stops, it
+should restore the old bindings. I checked with the Racket mailing
+list and Ryan Culpepper confirmed the issue.
+
+I've been using an association list for the compile time environment
+(type Env). The stack-like behavior could be used to keep the old
+bindings around when stop bindings are installed, but otherwise it's
+not necessary to "shadow" bindings. It seems silly to look linearly
+through this list all the time, so my first change here is to use a
+table instead.
+
