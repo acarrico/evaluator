@@ -51,7 +51,7 @@
   (match i
     ((Form _ (ResolvedId resolved-name) rhs body)
      (define transformer
-       (Ast-eval (parse rhs) (CompState-eval-env state) env))
+       (Ast-eval (parse rhs) (CompState-eval-env state) env #f))
      (define-values (state* fresh-name)
        (CompState-fresh-name state resolved-name))
      (match-define (list renamed-body)
@@ -112,7 +112,7 @@
   : (Values CompState Stx)
   (define-values (next-state mark) (CompState-fresh-mark initial-state))
   ;; Mark input before applying the transformer:
-  (define o (Ast-apply-values transform (list (Stx-mark i mark)) env))
+  (define o (Ast-apply-values transform (list (Stx-mark i mark)) env mark))
   (if (Stx? o)
       ;; Mark output after applying the transformer:
       (expand next-state env (Stx-mark o mark))

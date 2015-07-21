@@ -545,3 +545,7 @@ not necessary to "shadow" bindings. It seems silly to look linearly
 through this list all the time, so my first change here is to use a
 table instead.
 
+The next change is to arrange for the expander to pass the mark used
+for a macro application to the evaluator for use in *lexpand* (other
+uses of the evaluator just pass *#f*).
+

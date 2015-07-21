@@ -7,7 +7,7 @@
  Ast-eval
  Ast-apply-values)
 
-(define (Ast-eval (ast : Ast) (ast-env : AstEnv) (env : Env)) : Val
+(define (Ast-eval (ast : Ast) (ast-env : AstEnv) (env : Env) (mark : (U Mark #f))) : Val
   (match ast
     ((App (list (Closure (Fun (list vars ...) body) ast-env*) args ...))
      (unless (= (length vars) (length args))
@@ -15,10 +15,10 @@
      (define ast-env** : AstEnv
        (for/fold ((ast-env** ast-env*))
                  ((var vars) (arg args))
-         (cons (list var (Ast-eval arg ast-env env)) ast-env**)))
-     (Ast-eval body ast-env** env))
+         (cons (list var (Ast-eval arg ast-env env mark)) ast-env**)))
+     (Ast-eval body ast-env** env mark))
     ((App (list (PrimOp 'lvalue) arg-ast))
-     (define arg (Ast-eval arg-ast ast-env env))
+     (define arg (Ast-eval arg-ast ast-env env mark))
      (match arg
        ((ResolvedId (Sym name))
         (match (Env-ref env name)
@@ -30,11 +30,11 @@
     ((App (list (PrimOp 'lvalue) _ ...))
      (error "lvalue takes one argument"))
     ((App (list (? PrimOp? op) args ...))
-     (Prim-eval op (for/list ((arg args)) (Ast-eval arg ast-env env))))
+     (Prim-eval op (for/list ((arg args)) (Ast-eval arg ast-env env mark))))
     ((App (list op-ast args ...))
-     (match (Ast-eval op-ast ast-env env)
+     (match (Ast-eval op-ast ast-env env mark)
        ((? (make-predicate (U Closure PrimOp)) op)
-        (Ast-eval (App (cons op args)) ast-env env))
+        (Ast-eval (App (cons op args)) ast-env env mark))
        (op
         (error "Ast-eval: operator must be a Closure or PrimOp" op))))
     ((Var name)
@@ -77,7 +77,7 @@
     ((_ _)
      (error "Prim-eval bad primitive form" op args))))
 
-(define (Ast-apply-values (closure : Closure) (args : (Listof Val)) (env : Env))
+(define (Ast-apply-values (closure : Closure) (args : (Listof Val)) (env : Env) (mark : (U Mark #f)))
   ;; NOTE: this does not evaluate the operator or the args.
   (match closure
     ((Closure (Fun (list vars ...) body) ast-env)
@@ -87,4 +87,4 @@
        (for/fold ((ast-env ast-env))
                  ((var vars) (arg args))
          (cons (list var arg) ast-env)))
-     (Ast-eval body ast-env* env))))
+     (Ast-eval body ast-env* env mark))))
