@@ -538,14 +538,24 @@ Together* that confused me a little bit. When it clears the stops, it
 should restore the old bindings. I checked with the Racket mailing
 list and Ryan Culpepper confirmed the issue.
 
-I've been using an association list for the compile time environment
-(type Env). The stack-like behavior could be used to keep the old
-bindings around when stop bindings are installed, but otherwise it's
-not necessary to "shadow" bindings. It seems silly to look linearly
-through this list all the time, so my first change here is to use a
-table instead.
+There are a lot of ways to represent the compile time environment
+(type Env). I've been using an association list. It isn't necessary to
+"shadow" bindings, so the stack behavior wasn't used or necessary.
+The stack behavior could be used to keep the old bindings around
+when *lexpand* installs stop bindings, but it seems a bit silly to
+look linearly through the list all the time. Instead, my new Env
+representation has two fields: a table that maps names to binding, and
+a set of stop names.
+
+To look up a name in the new Env:
+
+  * if the name is in the stop set: return the stop transformer binding,
+  * otherwise if the name is in the table: return the value,
+  * otherwise the name is unbound.
+
+Since the original bindings are always in the table, *lexpand* (even
+nested) can just change the stop set.
 
 The next change is to arrange for the expander to pass the mark used
 for a macro application to the evaluator for use in *lexpand* (other
 uses of the evaluator just pass *#f*).
-
