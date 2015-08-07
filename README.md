@@ -22,6 +22,9 @@ follow these steps.
 **Update:** J. Ian Johnson is also working on a [typed racket
   implementation of these models](https://github.com/ianj/macro-models).
 
+**Update:** Matthew Flatt's sets of scopes expander has been merged
+  into Racket's main branch.
+
 # Day 1 — Core Language and Evaluator
 
 This section's git tag is *core-language*.
