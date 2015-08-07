@@ -50,15 +50,15 @@
 (define (let-syntax-transform state env i)
   (match i
     ((Form _ (ResolvedId resolved-name) rhs body)
-     (define transformer
-       (Ast-eval (parse rhs) (CompState-eval-env state) env #f))
-     (define-values (state* fresh-name)
-       (CompState-fresh-name state resolved-name))
+     (define-values (state* transformer)
+       (Ast-eval (parse rhs) (CompState-eval-env state) state env #f))
+     (define-values (state** fresh-name)
+       (CompState-fresh-name state* resolved-name))
      (match-define (list renamed-body)
        (rename-stxes (list resolved-name) (list fresh-name) (list body)))
 
      (define env* (Env-set env (Sym-name fresh-name) (ValBinding transformer)))
-     (expand state* env* renamed-body))))
+     (expand state** env* renamed-body))))
 
 (: fun-transform Transform)
 (define (fun-transform state env i)
@@ -108,14 +108,16 @@
     (_
      (error "expand: quote requires exactly one subform" i))))
 
-(define (expand-macro (transform : Closure) (initial-state : CompState) (env : Env) (i : Stx))
+(define (expand-macro (transform : Closure) (state : CompState) (env : Env) (i : Stx))
   : (Values CompState Stx)
-  (define-values (next-state mark) (CompState-fresh-mark initial-state))
+  (define-values (state* mark)
+    (CompState-fresh-mark state))
   ;; Mark input before applying the transformer:
-  (define o (Ast-apply-values transform (list (Stx-mark i mark)) env mark))
+  (define-values (state** o)
+    (Ast-apply-values transform (list (Stx-mark i mark)) state* env mark))
   (if (Stx? o)
       ;; Mark output after applying the transformer:
-      (expand next-state env (Stx-mark o mark))
+      (expand state** env (Stx-mark o mark))
       (error "expand: macro transformer did not return syntax" o)))
 
 (define (expand-list (initial-state : CompState) (env : Env) (stxes : (Listof Stx)))

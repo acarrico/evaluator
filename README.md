@@ -529,7 +529,7 @@ environment:
             42)
 ```
 
-# Day 25 — local expand
+# Day 25, 26, 27 — local expand
 
 This section's git tag is *lexpand*
 
@@ -559,3 +559,8 @@ nested) can just change the stop set.
 The next change is to arrange for the expander to pass the mark used
 for a macro application to the evaluator for use in *lexpand* (other
 uses of the evaluator just pass *#f*).
+
+The compiler state is threaded through the expander. Consequently, to
+support local expansion, the compiler state must now also be threaded
+through the evaluator. An alternative would be to explicitly pass the
+state to macro transformers.
