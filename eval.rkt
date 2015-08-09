@@ -34,7 +34,6 @@
     ((App (list (PrimOp 'lvalue) _ ...))
      (error "lvalue takes one argument"))
     ((App (list (PrimOp 'lexpand) exp-ast stops-ast))
-     (printf "lexpand: ~s\n" ast)
      (define-values (state* stx) (Ast-eval exp-ast ast-env state env mark))
      (define-values (state** stops) (Ast-eval stops-ast ast-env state* env mark))
      (cond ((not (Mark? mark))
