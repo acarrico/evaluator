@@ -347,3 +347,14 @@
                                     (lexpand (car (cdr (stx-e e))) (list #'public))))
                            (class (public '8))))
             8)
+
+(check-exn
+ #rx"expand: unbound identifier*"
+ (lambda ()
+   (eval
+    '(let-syntax stop (lambda (e) (car (cdr (stx-e e))))
+       (let-syntax ex (lambda (e) (lexpand (car (cdr (stx-e e)))
+                                           (list #'stop)))
+         (ex (lambda (x)
+               (let-syntax arg (lambda (e) #'(stop x))
+                 (arg)))))))))
