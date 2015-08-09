@@ -567,3 +567,21 @@ The compiler state is threaded through the expander. Consequently, to
 support local expansion, the compiler state must now also be threaded
 through the evaluator. An alternative would be to explicitly pass the
 state to macro transformers.
+
+Finally, local expansion introduces a circular dependency between the
+evaluator and the expander. I've resolved this by adding the expander
+function to the compiler state where the evaluator can find it.
+
+With all this infrastructure in place, *lexpand* slipped in easily as
+a new case in the evaluator (once I remembered to resolve the stop
+ids).
+
+```
+(check-eval '(let-syntax public (lambda (e) (syntax-error))
+               (let-syntax class (lambda (e)
+                                   ((lambda (e2) (car (cdr (stx-e e2))))
+                                    (lexpand (car (cdr (stx-e e))) (list #'public))))
+                           (class (public '8))))
+            8)
+```
+            

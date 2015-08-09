@@ -37,7 +37,7 @@
       (match src-binding
         ((list name val)
           (cons (list (Var name) (scan val)) t-eval-env)))))
-  (values eval-env expand-env (CompState 0 t-eval-env)))
+  (values eval-env expand-env (CompState 0 t-eval-env expand)))
 
 (define-values (initial-eval-env initial-expand-env initial-state)
   (make-initial-state '((cons #%cons)
@@ -48,7 +48,8 @@
                         (stx-e #%stx-e)
                         (mk-stx #%mk-stx)
                         (+ #%+))
-                      '((lvalue #%lvalue))))
+                      '((lvalue #%lvalue)
+                        (lexpand #%lexpand))))
 
 ;; Scanner:
 (check-equal? (scan 'x)
@@ -335,4 +336,14 @@
               '42)
             42)
 
+;; The lexpand primitive should only be available during the
+;; application of a macro transformer:
+(check-exn #rx"expand: unbound identifier*" (lambda () (eval 'lexpand)))
 
+;; Testing the lexpand primitive:
+(check-eval '(let-syntax public (lambda (e) (syntax-error))
+               (let-syntax class (lambda (e)
+                                   ((lambda (e2) (car (cdr (stx-e e2))))
+                                    (lexpand (car (cdr (stx-e e))) (list #'public))))
+                           (class (public '8))))
+            8)

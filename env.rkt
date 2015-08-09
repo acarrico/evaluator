@@ -14,7 +14,7 @@
  empty-Env Env Env-set Env-ref
  Stops? Env-set-stops)
 
-(define-type Stops (Seq Sym))
+(define-type Stops (Seq Id))
 (define Stops? (make-predicate Stops))
 
 (define-type Transform (-> CompState Env Stx (Values CompState Stx)))
@@ -28,6 +28,10 @@
 (struct CompState ((next-fresh : Natural)
                    ;; evaluation environment for macro expanders:
                    (eval-env : AstEnv)
+                   ;; NOTE: The expander function is here primarily to deal
+                   ;; with a circular dependency among eval and
+                   ;; expand.
+                   (expand : Transform)
                    )
   #:transparent)
 
@@ -61,6 +65,6 @@
 (define (Env-set-stops (env : Env) (stops : Stops)) : Env
   (define new-Stops : (Setof Symbol)
     (match stops
-      ((Seq (Sym #{names : (Listof Symbol)}) ...)
+      ((Seq (ResolvedId (Sym #{names : (Listof Symbol)})) ...)
        (list->seteq names))))
   (struct-copy Env env (stops new-Stops)))
