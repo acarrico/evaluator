@@ -25,9 +25,27 @@ follow these steps.
 **Update:** Matthew Flatt's sets of scopes expander has been merged
   into Racket's main branch.
 
+# Session 29, 30
+
+This section's git tag is *scopes*
+
+The *Scope* type is a structure with an *id* field. The *id* is
+wrapped in a structure to make it a reference type so it can key weak
+tables. A *SetofScopes* is just a *(Setof Scope)*. The model requires
+three scope operations *add*, *remove*, and *flip*. The standard set
+ops can be used for strict syntax, but lazy operations will be
+required for lazy syntax. The *SetofScopeOps* type represents the lazy
+ops, and *SetofScopeOps-apply* applies them to a *SetofScopes*. There
+are various ways the lazy ops could be represented and optimized. I've
+chosen to keep lazy ops as three sets (of scopes), *add*, *remove*,
+and *flip*, where each scope is in at most one of these sets. More
+importantly, I've added tests for each combination of one and two ops.
+Of course the tests caught a bug in one of the combinations. I also
+uncovered two racket bugs writing this little module.
+
 # Session 28
 
-I've come to the point were I've done all but *3.8 Definition
+I've come to the point where I've done all but *3.8 Definition
 Contexts* of *Macros that Work Together*. In [*Binding as Sets of
 Scopes Notes on a new model of macro expansion for
 Racket*](http://www.cs.utah.edu/~mflatt/scope-sets-5/index.html),
