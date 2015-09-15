@@ -104,7 +104,7 @@
   ;; ISSUE: typed racket bug 15143 (check-equal? (seteq) (seteq))
   (: check-set-equal? (All (A) (-> (Setof A) (Setof A) Any)))
   (define (check-set-equal? a b)
-    (check-equal? (sort (set->list a) lt?) (sort (set->list b) lt?)))
+    (check-true (equal? a b)))
 
   (check-set-equal? (SetofScopes-add (empty-SetofScopes) (canonical-scope 0))
                     (canonical-scopes '(0)))
