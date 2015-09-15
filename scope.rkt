@@ -112,7 +112,7 @@
                     (canonical-scopes '()))
   (check-set-equal? (SetofScopes-flip (empty-SetofScopes) (canonical-scope 0))
                     (canonical-scopes '(0)))
-  
+
   (check-set-equal? (SetofScopes-add
                      (SetofScopes-add (empty-SetofScopes) (canonical-scope 0))
                      (canonical-scope 0))
