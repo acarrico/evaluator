@@ -1,8 +1,7 @@
 #lang typed/racket/base
 
 (require racket/match
-         racket/set
-         (for-syntax typed/racket/base))
+         racket/set)
 
 (provide
  (struct-out Scope)
