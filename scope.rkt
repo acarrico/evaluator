@@ -1,5 +1,8 @@
 #lang typed/racket/base
 
+(module+ canonical-scope)
+(module+ test)
+
 (require racket/match
          racket/set)
 
@@ -85,21 +88,7 @@
 
 (module+ test
   (require typed/rackunit)
-
-  (define canonical-table : (HashTable Natural Scope) (make-hash))
-  (define (canonical-scope (nat : Natural)) : Scope
-    (hash-ref canonical-table
-              nat
-              (lambda ()
-                (define scope (Scope nat))
-                (hash-set! canonical-table nat scope)
-                scope)))
-
-  (define (canonical-scopes (nats : (Listof Natural)))
-    (list->seteq (ann (for/list ((nat : Natural nats)) (canonical-scope nat)) (Listof Scope))))
-
-  (define (lt? (x : Scope) (y : Scope)) : Boolean
-    (< (Scope-id x) (Scope-id y)))
+  (require (submod ".." canonical-scope))
 
   ;; ISSUE: typed racket bug 15143 (check-equal? (seteq) (seteq))
   (: check-set-equal? (All (A) (-> (Setof A) (Setof A) Any)))
@@ -138,7 +127,7 @@
                      (SetofScopes-flip (empty-SetofScopes) (canonical-scope 0))
                      (canonical-scope 0))
                     (canonical-scopes '()))
-  
+
   (check-set-equal? (SetofScopes-flip
                      (SetofScopes-add (empty-SetofScopes) (canonical-scope 0))
                      (canonical-scope 0))
@@ -151,7 +140,7 @@
                      (SetofScopes-flip (empty-SetofScopes) (canonical-scope 0))
                      (canonical-scope 0))
                     (canonical-scopes '()))
-  
+
   (check-set-equal? (SetofScopes-add (canonical-scopes '(0)) (canonical-scope 0))
                     (canonical-scopes '(0)))
   (check-set-equal? (SetofScopes-remove (canonical-scopes '(0)) (canonical-scope 0))
@@ -217,3 +206,36 @@
 
   (check-scope-ops '(0 1 2) '((add 0) (flip 0)) '(1 2))
   )
+
+(module+ canonical-scope
+  (provide
+   canonical-scope
+   canonical-scopes)
+
+  (define canonical-table : (HashTable Natural Scope) (make-hash))
+  (define (canonical-scope (nat : Natural)) : Scope
+    (hash-ref canonical-table
+              nat
+              (lambda ()
+                (define scope (Scope nat))
+                (hash-set! canonical-table nat scope)
+                scope)))
+
+  (define (canonical-scopes (nats : (Listof Natural)))
+    : SetofScopes
+    (list->seteq
+     (ann (for/list ((nat : Natural nats))
+            (canonical-scope nat))
+          (Listof Scope))))
+
+  (module+ test
+    (require typed/rackunit)
+
+    ;; ISSUE: Problem Report 15153 check-eq? unreliable in typed/racket:
+    (check-true (eq? (canonical-scope 0) (canonical-scope 0)))
+    (check-false (eq? (canonical-scope 0) (Scope 0)))
+    (check-false (eq? (canonical-scope 0) (canonical-scope 1))))
+  )
+
+(module+ test
+  (require (submod ".." canonical-scope test)))
