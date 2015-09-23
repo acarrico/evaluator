@@ -52,20 +52,7 @@
                         (lexpand #%lexpand))))
 
 ;; Scanner:
-(check-equal? (scan 'x)
-              (Sym 'x))
-(check-equal? (scan '(#%fun (x y) (y x)))
-              (Fun (list (Var 'x) (Var 'y)) (App (list (Var 'y) (Var 'x)))))
-(check-equal? (scan '(#%ast x))
-              (PrimAst (Var 'x)))
-(check-equal? (scan '(#%ast (x y z)))
-              (PrimAst (App (list (Var 'x) (Var 'y) (Var 'z)))))
-(check-equal? (scan '(x y z))
-              (Seq (Sym 'x) (Sym 'y) (Sym 'z)))
-(check-equal? (scan '#%cons) (PrimOp 'cons))
-(check-equal? (scan 1) 1)
-(check-equal? (scan '(#%stx 2))
-              (Stx 2 (EmptyCtx)))
+(require (submod "scanner.rkt" test))
 
 ;; Ast Evaluator:
 

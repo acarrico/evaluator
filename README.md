@@ -25,6 +25,11 @@ follow these steps.
 **Update:** Matthew Flatt's sets of scopes expander has been merged
   into Racket's main branch.
 
+# Session 31
+
+Now that sets-of-scopes have landed in Racket, submodules seem to work
+in typed racket. These changes break up the big test file.
+
 # Session 29, 30
 
 This section's git tag is *scopes*
