@@ -25,6 +25,11 @@ follow these steps.
 **Update:** Matthew Flatt's sets of scopes expander has been merged
   into Racket's main branch.
 
+# Session 32
+
+Add another operator, SetofScopeOps-merge, to merge lazy set-of-scopes
+operations.
+
 # Session 31
 
 Now that sets-of-scopes have landed in Racket, submodules seem to work
