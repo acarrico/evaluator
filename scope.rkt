@@ -18,6 +18,7 @@
  SetofScopeOps-add
  SetofScopeOps-remove
  SetofScopeOps-flip
+ SetofScopeOps-merge
  )
 
 ;; NOTE: Scopes are structs so we can count on the garbage collector
@@ -88,8 +89,21 @@
            (else
             (SetofScopeOps adds removes (set-add flips scope)))))))
 
+(define (SetofScopeOps-merge (outer : SetofScopeOps) (inner : SetofScopeOps))
+  : SetofScopeOps
+  ;; ISSUE: combine ops one at a time, could be better:
+  (match outer
+    ((SetofScopeOps adds rems flips)
+     (define ops/a
+       (for/fold ((ops : SetofScopeOps inner)) ((op adds)) (SetofScopeOps-add ops op)))
+     (define ops/ar
+       (for/fold ((ops : SetofScopeOps ops/a)) ((op rems)) (SetofScopeOps-remove ops op)))
+     (define ops/arf
+       (for/fold ((ops : SetofScopeOps ops/ar)) ((op flips)) (SetofScopeOps-flip ops op)))
+     ops/arf)))
+
 (module+ test
-  (require typed/rackunit)
+  (require typed/rackunit racket/list)
   (require (submod ".." canonical-scope))
 
   ;; ISSUE: typed racket bug 15143 (check-equal? (seteq) (seteq))
@@ -150,43 +164,55 @@
   (check-set-equal? (SetofScopes-flip (canonical-scopes '(0)) (canonical-scope 0))
                     (canonical-scopes '()))
 
-  (: check-scope-ops (-> (Listof Natural)
-                         (Listof (List (U 'add 'remove 'flip) Natural))
-                         (Listof Natural)
-                         Any))
+  (define-type RawOp (List (U 'add 'remove 'flip) Natural))
+  (define-type RawOps (Listof (List (U 'add 'remove 'flip) Natural)))
 
+  (define (RawOps->ops (raw-ops : RawOps)) : SetofScopeOps
+    (for/fold ((ops : SetofScopeOps (empty-SetofScopeOps)))
+              ((raw-op : RawOp raw-ops))
+      (match raw-op
+        ((list 'add scope-index)
+         (SetofScopeOps-add ops (canonical-scope scope-index)))
+        ((list 'remove scope-index)
+         (SetofScopeOps-remove ops (canonical-scope scope-index)))
+        ((list 'flip scope-index)
+         (SetofScopeOps-flip ops (canonical-scope scope-index))))))
+
+  (define (RawOps-apply (raw-ops : RawOps) (init-scopes : SetofScopes))
+    : SetofScopes
+    (for/fold ((scopes init-scopes))
+              ((raw-op : RawOp raw-ops))
+      (match raw-op
+        ((list 'add scope-index)
+         (set-add scopes (canonical-scope scope-index)))
+        ((list 'remove scope-index)
+         (set-remove scopes (canonical-scope scope-index)))
+        ((list 'flip scope-index)
+         (set-symmetric-difference scopes (seteq (canonical-scope scope-index)))))))
+
+  (: check-scope-ops (-> (Listof Natural) RawOps (Listof Natural) Any))
   (define (check-scope-ops init raw-ops result)
-
     (define init-scopes (canonical-scopes init))
-
-    (define-values (#{ops : SetofScopeOps}
-                    #{check : SetofScopes})
-      (for/fold ((ops (empty-SetofScopeOps))
-                 (check init-scopes))
-                ((raw-op : (List (U 'add 'remove 'flip) Natural) raw-ops))
-        (match raw-op
-          ((list 'add scope-index)
-           (define scope (canonical-scope scope-index))
-           (values
-            (SetofScopeOps-add ops scope)
-            (set-add check scope)))
-          ((list 'remove scope-index)
-           (define scope (canonical-scope scope-index))
-           (values
-            (SetofScopeOps-remove ops scope)
-            (set-remove check scope)))
-          ((list 'flip scope-index)
-           (define scope (canonical-scope scope-index))
-           (values
-            (SetofScopeOps-flip ops scope)
-            (set-symmetric-difference check (seteq scope)))))))
-
     (define result-scopes (canonical-scopes result))
 
-    (define apply-scopes (SetofScopeOps-apply ops init-scopes))
+    ;; Check to make sure the given results are correct:
+    (check-set-equal? (RawOps-apply raw-ops init-scopes) result-scopes)
 
-    (check-set-equal? check result-scopes)
-    (check-set-equal? apply-scopes result-scopes))
+    ;; Check SetofScopeOps-apply:
+    (define ops (RawOps->ops raw-ops))
+    (check-set-equal?
+     (SetofScopeOps-apply ops init-scopes)
+     result-scopes)
+
+    ;; Check SetofScopeOps-merge:
+    (for ((index (+ 1 (length raw-ops))))
+      (let-values (((inner-ops outer-ops) (split-at raw-ops index)))
+        (check-set-equal?
+         (SetofScopeOps-apply
+          (SetofScopeOps-merge (RawOps->ops outer-ops) (RawOps->ops inner-ops))
+          init-scopes)
+         result-scopes)))
+    )
 
   (check-scope-ops '(1 5) '((add 0)) '(0 1 5))
   (check-scope-ops '(1 6) '((remove 0)) '(1 6))
@@ -207,6 +233,11 @@
   (check-scope-ops '(0 1 19) '((flip 0)) '(1 19))
 
   (check-scope-ops '(0 1 2) '((add 0) (flip 0)) '(1 2))
+
+  (check-scope-ops
+   '(0 1 2)
+   '((add 0) (flip 0) (add 1) (add 2) (add 3) (remove 3) (flip 3) (flip 0))
+   '(0 1 2 3))
   )
 
 (module+ canonical-scope
