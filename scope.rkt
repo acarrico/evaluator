@@ -22,7 +22,8 @@
 
 ;; NOTE: Scopes are structs so we can count on the garbage collector
 ;; detecting unreferenced scopes when used as keys in weak tables.
-(struct Scope ((id : Natural)) #:transparent)
+;; Only mutable to give it object identity.
+(struct Scope ((id : Natural)) #:transparent #:mutable)
 
 (define-type SetofScopes (Setof Scope))
 
