@@ -43,7 +43,8 @@
 
 (struct SetofScopeOps ((adds : SetofScopes)
                        (removes : SetofScopes)
-                       (flips : SetofScopes)))
+                       (flips : SetofScopes))
+  #:transparent)
 
 (define (empty-SetofScopeOps)
   (SetofScopeOps (seteq) (seteq) (seteq)))
