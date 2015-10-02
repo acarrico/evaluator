@@ -130,48 +130,41 @@
   (define binding-table
     (BindingTable-extend (empty-BindingTable) s0 'a set-s0 a0))
 
-  (check-true
-   (equal?
+  (check equal?
     (BindingTable-ref binding-table s0 'a)
-    (list entry-a0)))
+    (list entry-a0))
 
   (set! binding-table
         (BindingTable-extend binding-table s0 'b set-s0 b0))
 
-  (check-true
-   (equal?
+  (check equal?
     (BindingTable-ref binding-table s0 'b)
-    (list entry-b0)))
+    (list entry-b0))
 
   (set! binding-table
         (BindingTable-extend binding-table s1 'a set-s01 a01))
 
-  (check-true
-   (equal?
+  (check equal?
     (BindingTable-ref binding-table s1 'a)
-    (list entry-a01)))
+    (list entry-a01))
 
   (set! binding-table
         (BindingTable-extend binding-table s1 'a set-s012 a012))
 
-  (check-true
-   (equal?
+  (check equal?
     (list->set (BindingTable-ref binding-table s1 'a))
-    (set entry-a01 entry-a012)))
+    (set entry-a01 entry-a012))
 
-  (check-true
-   (equal?
+  (check equal?
     (BindingTable-resolve binding-table 'a set-s0)
-    a0))
+    a0)
 
-  (check-true
-   (equal?
+  (check equal?
     (BindingTable-resolve binding-table 'a set-s01)
-    a01))
+    a01)
 
-  (check-true
-   (equal?
+  (check equal?
     (BindingTable-resolve binding-table 'a set-s012)
-    a012))
+    a012)
 
   )
