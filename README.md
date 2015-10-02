@@ -25,6 +25,24 @@ follow these steps.
 **Update:** Matthew Flatt's sets of scopes expander has been merged
   into Racket's main branch.
 
+# Session 33 — bindings
+
+This section's git tag is *bindings*
+
+Mathew Flatt defines the binding table as "the global table that maps
+a ⟨symbol, scope set⟩ pair to a representation of a binding". He
+suggests storing entries in the scopes, so that when a scope becomes
+unreachable, so does its entries.
+
+I've been using immutable persistent state so far, so it makes sense
+for me to use an actual table for the binding table. Unfortunately
+Racket doesn't provide immutable persistent weak tables. For now, I've
+used a weak table to partition the binding table by scope
+(*BindingTable-extend* takes a hint to determine the new entry's
+partition). The side effect is ok for now, but could be a problem if I
+did something crazy that branched the expander (speculative
+expansion?).
+
 # Session 32
 
 Add another operator, SetofScopeOps-merge, to merge lazy set-of-scopes
