@@ -1,21 +1,21 @@
 #lang typed/racket/base
 
 (require racket/match
-         (for-syntax typed/racket/base))
+         racket/set
+         (for-syntax typed/racket/base)
+         "scope.rkt"
+         "binding.rkt")
 
 (provide
  Seq list->Seq
  (struct-out Sym) Sym=?
  Atom Atom?
  Exp Exp?
- Mark Mark?
- Ctx Ctx? EmptyCtx EmptyCtx?
- Stx Stx?
- Id Id? ResolvedId
+ Ctx Ctx? EmptyCtx
+ Stx Stx? Stx-add-scope Stx-remove-scope Stx-flip-scope
+ Id Id? Id-resolve Id-add-scope Id-bind
+ bound-identifier=? bound-identifiers-distinct?
  Form Form?
- Stx-mark
- rename-stxes
- resolve-tree
  )
 
 (struct (T) ListSeq ((elems : (Listof T))) #:transparent)
@@ -27,27 +27,33 @@
 (define-type Atom (U Sym Integer))
 (define-type Exp (U Atom (Seq Stx)))
 
-(define-type Mark Natural)
-(define Mark? (make-predicate Mark))
-(define-type Marks (Listof Mark))
-(define (Marks=? (xs : Marks) (ys : Marks))
-  (equal? xs ys))
-(define (Marks-cons (m0 : Mark) (ms : Marks))
-  (match ms
-    ((list m1 more ...) #:when (= m0 m1) more)
-    (_ (cons m0 ms))))
+(struct Ctx ((scopes : SetofScopes)) #:transparent)
 
-(struct Subst ((from : Sym) (to : Sym) (marks : Marks)) #:transparent)
-(define-type Ctx (Listof (U Mark Subst)))
-(define (EmptyCtx) : Ctx '())
-(define EmptyCtx? null?)
-(define (Ctx-cons (elem : (U Mark Subst)) (ctx : Ctx))
-  (match* (elem ctx)
-    (((? Mark? m0) (list (? Mark? m1) more ...)) #:when (= m0 m1) more)
-    ((_ _) (cons elem ctx))))
+(define (EmptyCtx) : Ctx (Ctx (empty-SetofScopes)))
+(define (EmptyCtx? (ctx : Ctx)) (set-empty? (Ctx-scopes ctx)))
+
+(define (Ctx-add-scope (ctx : Ctx) (scope : Scope))
+  (struct-copy Ctx ctx (scopes (SetofScopes-add (Ctx-scopes ctx) scope))))
+
+(define (Ctx-remove-scope (ctx : Ctx) (scope : Scope))
+  (struct-copy Ctx ctx (scopes (SetofScopes-remove (Ctx-scopes ctx) scope))))
+
+(define (Ctx-flip-scope (ctx : Ctx) (scope : Scope))
+  (struct-copy Ctx ctx (scopes (SetofScopes-flip (Ctx-scopes ctx) scope))))
+
+(struct LazyCtx ((ops : SetofScopeOps)) #:transparent)
+
+(define (LazyCtx-add-scope (ctx : LazyCtx) (scope : Scope))
+  (struct-copy LazyCtx ctx (ops (SetofScopeOps-add (LazyCtx-ops ctx) scope))))
+
+(define (LazyCtx-remove-scope (ctx : LazyCtx) (scope : Scope))
+  (struct-copy LazyCtx ctx (ops (SetofScopeOps-remove (LazyCtx-ops ctx) scope))))
+
+(define (LazyCtx-flip-scope (ctx : LazyCtx) (scope : Scope))
+  (struct-copy LazyCtx ctx (ops (SetofScopeOps-flip (LazyCtx-ops ctx) scope))))
 
 ;; The context applies to every node in the expression:
-(struct (T) LazyStx ((strict : (StrictStx T)) (ctx : Ctx)) #:transparent)
+(struct (T) LazyStx ((strict : (StrictStx T)) (ctx : LazyCtx)) #:transparent)
 ;; The context applies to the top node of the expression:
 (struct (T) StrictStx ((exp : T) (ctx : Ctx)) #:transparent)
 (define-type UnionStx (All (T) (U (LazyStx T) (StrictStx T))))
@@ -58,7 +64,6 @@
 
 (define Atom? (make-predicate Atom))
 (define Exp? (make-predicate Exp))
-(define Ctx? (make-predicate Ctx))
 (define Stx? (make-predicate Stx))
 (define Id? (make-predicate Id))
 (define Form? (make-predicate Form))
@@ -89,8 +94,7 @@
 (define (Stx->StrictStx (i : Stx)) : (StrictStx Exp)
   (match i
     ((? StrictStx? o) o)
-    ((LazyStx o (list)) o)
-    ((LazyStx (StrictStx exp ctx-inner) ctx-outer)
+    ((LazyStx (StrictStx exp inner) outer)
      (StrictStx
       (match exp
         ((Seq elements ...)
@@ -98,75 +102,52 @@
           (for/list : (Listof Stx) ((elem : Stx elements))
             (match elem
               ((? StrictStx? strict-elem)
-               (LazyStx strict-elem ctx-outer))
-              ((LazyStx strict-elem more-outer)
-               (LazyStx strict-elem (Ctx-merge ctx-outer more-outer)))))))
+               (LazyStx strict-elem outer))
+              ((LazyStx strict-elem inner)
+               (LazyStx strict-elem (LazyCtx-merge outer inner)))))))
         (_ exp))
-      (Ctx-merge ctx-inner ctx-outer)))))
+      (LazyCtx-apply outer inner)))))
 
-(define (Ctx-merge (outer : Ctx) (inner : Ctx)) : Ctx
-  (match* (outer inner)
-    ((outer (list)) outer)
-    (((list) inner) inner)
-    (((list elem outer ...) (list (? Mark? inner-mark) more-inner ...))
-     (let recurse ((elem elem)
-                   (outer outer))
-       (match* (elem outer)
-         ((elem (list next-elem outer ...))
-          (cons elem (recurse next-elem outer)))
-         (((? Mark? mark) _)
-          #:when (eq? mark inner-mark)
-          more-inner)
-         ((_ _)
-          (cons elem inner)))))
-    ((_ _)
-     (append outer inner))))
+(define (LazyCtx-apply (outer : LazyCtx) (inner : Ctx)) : Ctx
+  (Ctx (SetofScopeOps-apply (LazyCtx-ops outer) (Ctx-scopes inner))))
+
+(define (LazyCtx-merge (outer : LazyCtx) (inner : LazyCtx)) : LazyCtx
+  (LazyCtx (SetofScopeOps-merge (LazyCtx-ops outer) (LazyCtx-ops inner))))
 
 (define-match-expander Id
   (lambda (stx)
     (syntax-case stx ()
-      ((_ pat) #'(and (Stx (Sym _) _) pat)))))
+      ((_ pat) #'(? Id? pat)))))
 
-;; If possible, peel one Mark or Subst off the Id's Ctx,
-;; returning:
-;;   * the outer Mark and an Id with the rest of the Ctx, or
-;;   * the outer Subst and an Id with the rest of the Ctx, or
-;;   * #f and the original Id.
-(define (Id-peel (id : Id)) : (Values (U Mark Subst #f) Id)
+(define (Id-resolve (id : Id) (table : BindingTable)) : Binding
   (match id
-    ((StrictStx name (list elem more ...)) (values elem (StrictStx name more)))
-    ((StrictStx name _) (values #f id))
-    ;; NOTE: the last element of the lazy part of the context might be
-    ;; a mark that cancels:
-    ((LazyStx (StrictStx name ctx) (list elem))
-     (Id-peel (StrictStx name (Ctx-cons elem ctx))))
-    ((LazyStx strict (list elem)) (values elem strict))
-    ((LazyStx strict (list elem more ...)) (values elem (LazyStx strict more)))
-    ((LazyStx strict '()) (Id-peel strict))))
+    ((Stx (Sym name) (Ctx scopes))
+     (BindingTable-resolve table name scopes))))
 
-(define (Id-resolve/marks (id : Id)) : (Values Sym Marks)
-  (match/values (Id-peel id)
-    ((#f (StrictStx name _))
-     (values name '()))
-    ((elem id*)
-     (define-values (name marks) (Id-resolve/marks id*))
-     (match elem
-       ((? Mark? mark)
-        (values name (cons mark marks)))
-       ((Subst from-name to-name from-marks)
-        #:when (and (Sym=? name from-name) (Marks=? marks from-marks))
-        (values to-name '()))
-       (_
-        (values name marks))))))
+(define (Id-bind (id : Id) (binding : Binding) (table : BindingTable) (hint : Scope))
+  : BindingTable
+  (match id
+    ((Stx (Sym name) ctx)
+     (BindingTable-extend
+      table
+      hint
+      name
+      (Ctx-scopes ctx)
+      binding))))
 
-(define (Id-resolve (id : Id)) : Sym
-  (define-values (name marks) (Id-resolve/marks id))
-  name)
+(define (Id->name+scopes (id : Id))
+  : (List Symbol SetofScopes)
+  (match id
+    ((Stx (Sym name) (Ctx scopes)) (list name scopes))))
 
-(define-match-expander ResolvedId
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ pat) #'(? Id? (app Id-resolve pat))))))
+(define (bound-identifier=? (x : Id) (y : Id)) : Boolean
+  (equal? (Id->name+scopes x) (Id->name+scopes y)))
+
+(define (bound-identifiers-distinct? (ids : (Listof Id)))
+  : Boolean
+  (define keys (map Id->name+scopes ids))
+  (= (length keys)
+     (set-count (list->set ids))))
 
 (define-match-expander Form
   (lambda (stx)
@@ -174,43 +155,41 @@
       ((_ pat ...)
        #'(Stx (Seq pat ...) _)))))
 
-(define (Stx-mark (i : Stx) (m0 : Mark)) : Stx
+;; ISSUE: could avoid making lazy atoms, as Id-add-scope does:
+(define (Stx-add-scope (i : Stx) (scope : Scope)) : Stx
   (match i
-    ((LazyStx strict (list (? Mark? m1)))
-     #:when (= m0 m1)
-     strict)
-    ((LazyStx strict (list (? Mark? m1) more ...))
-     #:when (= m0 m1)
-     (LazyStx strict more))
     ((LazyStx strict ctx)
-     (LazyStx strict (cons m0 ctx)))
-    ((StrictStx (? Atom? atom) (list (? Mark? m1) more ...))
-     #:when (= m0 m1)
-     (StrictStx atom more))
-    ((? StrictStx? i)
-     (LazyStx i (list m0)))))
+     (LazyStx strict (LazyCtx-add-scope ctx scope)))
+    ((StrictStx (? Atom? atom) ctx)
+     (StrictStx atom (Ctx-add-scope ctx scope)))
+    ((? StrictStx? stxs)
+     (LazyStx stxs (LazyCtx (SetofScopeOps-add (empty-SetofScopeOps) scope))))))
 
-(define (rename-stxes (froms : (Listof Sym)) (tos : (Listof Sym)) (stxs : (Listof Stx)))
-  : (Listof Stx)
+;; ISSUE: it would be nice if Stx-add-scope was polymorphic, so adding
+;; scope to an Id would give an Id, but I can't figure that out, so I
+;; use Id-add-scope too. On the other hand, it actually gives a
+;; StrictStx in every case, which is nice:
+(define (Id-add-scope (i : Id) (scope : Scope)) : Id
+  (match i
+    ((LazyStx (StrictStx sym ctx) lazy-ctx)
+     (StrictStx sym (Ctx-add-scope (LazyCtx-apply lazy-ctx ctx) scope)))
+    ((StrictStx sym ctx)
+     (StrictStx sym (Ctx-add-scope ctx scope)))))
 
-  (define substs : (Listof Subst)
-    (for/list ((from : Sym froms)
-               (to : Sym tos))
-      (Subst from to '())))
+(define (Stx-flip-scope (i : Stx) (scope : Scope)) : Stx
+  (match i
+    ((LazyStx strict ctx)
+     (LazyStx strict (LazyCtx-flip-scope ctx scope)))
+    ((StrictStx (? Atom? atom) ctx)
+     (StrictStx atom (Ctx-flip-scope ctx scope)))
+    ((? StrictStx? stxs)
+     (LazyStx stxs (LazyCtx (SetofScopeOps-flip (empty-SetofScopeOps) scope))))))
 
-  (for/list ((i stxs))
-    (match i
-      ((LazyStx strict ctx)
-       (LazyStx strict (append substs ctx)))
-      ((? StrictStx? strict)
-       (LazyStx strict substs)))))
-
-(define (resolve-tree (stx : Stx)) : Any
-  (match stx
-    ((ResolvedId (Sym name))
-     name)
-    ((Stx (? (make-predicate Integer) x) _)
-     x)
-    ((Stx (Seq elems ...) _)
-     (map resolve-tree elems))))
-
+(define (Stx-remove-scope (i : Stx) (scope : Scope)) : Stx
+  (match i
+    ((LazyStx strict ctx)
+     (LazyStx strict (LazyCtx-remove-scope ctx scope)))
+    ((StrictStx (? Atom? atom) ctx)
+     (StrictStx atom (Ctx-remove-scope ctx scope)))
+    ((? StrictStx? stxs)
+     (LazyStx stxs (LazyCtx (SetofScopeOps-remove (empty-SetofScopeOps) scope))))))

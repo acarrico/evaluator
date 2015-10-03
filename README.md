@@ -25,6 +25,40 @@ follow these steps.
 **Update:** Matthew Flatt's sets of scopes expander has been merged
   into Racket's main branch.
 
+# Session 34 — sets-of-scopes
+
+This section's git tag is *sets-of-scopes*
+
+This session changes the expander from mark+subst (Dybvig style) to
+sets-of-scopes (Flatt style). Much is ripped out and replaced in
+"syntax-lang.rkt"; the scope operations are extended to syntax
+operations here, and the parser, expander, evaluator, etc. are adapted
+as necessary.
+
+The binding table is now part of the compiler state needs which needs
+to be passed around even wider than before (to the parser). For
+convenience, I've added several ops directly on it:
+
+* CompState-fresh-scope
+* CompState-resolve-id
+* CompState-bind-id
+* CompState-parse
+
+Unfortunately "binding" is an overloaded term. Following Flatt,
+*Binding* is now the representation stored in the new global binding
+table. The old compile time *Binding* is now *CompileTimeBinding*.
+
+To keep the expander small and lucid, the primitive transformers are
+in a new module: "transformers.rkt". More tests have moved into
+submodules.
+
+Scopes are added for binding forms and macro use sites, but none of
+the other issues addressed in
+[scope-sets-5](http://www.cs.utah.edu/~mflatt/scope-sets-5) are dealt
+with or tested yet. Most of the evaluator is working as before, except
+that *lexpand* is commented out (along with its tests). The existing
+tests all pass :).
+
 # Session 33 — bindings
 
 This section's git tag is *bindings*

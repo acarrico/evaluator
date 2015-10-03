@@ -2,15 +2,18 @@
 
 (require racket/match
          racket/set
-         "core-lang.rkt")
+         "core-lang.rkt"
+         "scope.rkt"
+         "binding.rkt"
+         "parser.rkt")
 (provide
- (struct-out CompState)
+ (struct-out CompState) CompState-fresh-scope CompState-resolve-id CompState-bind-id CompState-parse
  Transform
  (struct-out Unbound)
  (struct-out TransformBinding)
  (struct-out ValBinding)
  (struct-out VarBinding)
- Binding
+ CompileTimeBinding
  empty-Env Env Env-set Env-ref
  Stops? Env-set-stops)
 
@@ -18,14 +21,18 @@
 (define Stops? (make-predicate Stops))
 
 (define-type Transform (-> CompState Env Stx (Values CompState Stx)))
+
 (struct Unbound ())
 (struct TransformBinding ((transform : Transform)) #:transparent)
 (struct ValBinding ((val : Val)) #:transparent)
 (struct VarBinding ((id : Stx)) #:transparent)
-(define-type Binding (U TransformBinding ValBinding VarBinding Unbound))
+(define-type CompileTimeBinding (U TransformBinding ValBinding VarBinding Unbound))
+
 ;; compile-time environment:
-(struct Env ((bindings : (HashTable Symbol Binding)) (stops : (Setof Symbol))) #:transparent)
+(struct Env ((table : (HashTable Symbol CompileTimeBinding)) (stops : (Setof Symbol))) #:transparent)
+
 (struct CompState ((next-fresh : Natural)
+                   (binding-table : BindingTable)
                    ;; evaluation environment for macro expanders:
                    (eval-env : AstEnv)
                    ;; NOTE: The expander function is here primarily to deal
@@ -35,20 +42,45 @@
                    )
   #:transparent)
 
+(define (CompState-fresh-scope (state : CompState))
+  : (Values CompState Scope)
+  (define index (CompState-next-fresh state))
+  (values
+   (struct-copy CompState state (next-fresh (+ index 1)))
+   (Scope index)))
+
+(define (CompState-resolve-id (state : CompState) (id : Id)) : Binding
+  (Id-resolve id (CompState-binding-table state)))
+
+(define (CompState-bind-id
+         (state : CompState)
+         (hint : Scope)
+         (id : Id)
+         (binding : Binding))
+  : CompState
+  (define new-binding-table
+    (Id-bind id binding (CompState-binding-table state) hint))
+  (struct-copy
+   CompState state
+   (binding-table new-binding-table)))
+
+(define (CompState-parse (state : CompState) (i : Stx)) : Ast
+  (parse i (CompState-binding-table state)))
+
 (define (empty-Env) : Env (Env (hasheq) (seteq)))
 
-(define (Env-set (env : Env) (name : Symbol) (binding : Binding)) : Env
-  (define new-bindings
+(define (Env-set (env : Env) (binding : Symbol) (compile-time-binding : CompileTimeBinding)) : Env
+  (define new-table
     (hash-update
-     (Env-bindings env)
-     name
+     (Env-table env)
+     binding
      (lambda (old)
        (if (Unbound? old)
-           binding
-           (error "Env-set: symbol already in env" name env)))
+           compile-time-binding
+           (error "Env-set: binding already in env" binding env)))
      (lambda () (Unbound))))
 
-  (struct-copy Env env (bindings new-bindings)))
+  (struct-copy Env env (table new-table)))
 
 (: stop-transform Transform)
 (define (stop-transform state env i)
@@ -57,14 +89,17 @@
 (define stop-transform-binding
   (TransformBinding stop-transform))
 
-(define (Env-ref (env : Env) (name : Symbol)) : Binding
-  (if (set-member? (Env-stops env) name)
+(define (Env-ref (env : Env) (binding : Symbol)) : CompileTimeBinding
+  (if (set-member? (Env-stops env) binding)
       stop-transform-binding
-      (hash-ref (Env-bindings env) name Unbound)))
+      (hash-ref (Env-table env) binding Unbound)))
 
-(define (Env-set-stops (env : Env) (stops : Stops)) : Env
+(define (Env-set-stops (env : Env) (state : CompState) (stops : Stops)) : Env
   (define new-Stops : (Setof Symbol)
     (match stops
-      ((Seq (ResolvedId (Sym #{names : (Listof Symbol)})) ...)
+      ((Seq (Id #{ids : (Listof Id)}) ...)
+       (define names : (Listof Symbol)
+         (for/list ((id : Id ids))
+           (Binding-name (CompState-resolve-id state id))))
        (list->seteq names))))
   (struct-copy Env env (stops new-Stops)))
