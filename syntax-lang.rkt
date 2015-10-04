@@ -30,7 +30,6 @@
 (struct Ctx ((scopes : SetofScopes)) #:transparent)
 
 (define (EmptyCtx) : Ctx (Ctx (empty-SetofScopes)))
-(define (EmptyCtx? (ctx : Ctx)) (set-empty? (Ctx-scopes ctx)))
 
 (define (Ctx-add-scope (ctx : Ctx) (scope : Scope))
   (struct-copy Ctx ctx (scopes (SetofScopes-add (Ctx-scopes ctx) scope))))
