@@ -2,6 +2,7 @@
 
 (require (for-syntax typed/racket/base)
          racket/match
+         "scope.rkt"
          "binding.rkt"
          "core-lang.rkt"
          "env.rkt"
@@ -10,6 +11,7 @@
 
 (provide fun-transform
          quote-transform
+         syntax-transform
          let-syntax-transform
          )
 
@@ -42,7 +44,7 @@
      (build-fresh-name name (cast index Natural)))))
 
 (: let-syntax-transform Transform)
-(define (let-syntax-transform state env i)
+(define (let-syntax-transform state env i #:phase ph #:prune scopes)
   (match i
     ((Form _ (Id id) rhs body)
 
@@ -53,32 +55,41 @@
        (CompState-fresh-name state* id))
 
      (define new-id
-       (Id-add-scope id new-scope))
+       (Id-add-scope id new-scope #:phase ph))
 
      (define state***
-       (CompState-bind-id state** new-scope new-id (Binding (Sym-name new-name))))
+       (CompState-bind-id state** new-id (Binding (Sym-name new-name))
+                          #:hint new-scope #:phase ph))
 
-     (define-values (state**** transformer)
-       (Ast-eval (CompState-parse state*** rhs)
-                 (CompState-eval-env state***) state*** env #f))
+     (define expand-phase (+ ph 1))
+
+     (define-values (state**** expanded-rhs)
+       (expand state*** (CompState-expand-env state***) rhs
+               #:phase expand-phase #:prune (empty-SetofScopes)))
+
+     (define-values (state***** transformer)
+       (Ast-eval (CompState-parse state**** expanded-rhs #:phase expand-phase)
+                 (CompState-eval-env state****) state**** env #f #:phase ph))
 
      (define env*
        (Env-set env (Sym-name new-name) (ValBinding transformer)))
 
      (define body*
-       (Stx-add-scope body new-scope))
+       (Stx-add-scope body new-scope #:phase ph))
 
-     (expand state**** env* body*))))
+     (define scopes* (SetofScopes-add scopes new-scope))
+
+     (expand state***** env* body* #:phase ph #:prune scopes*))))
 
 (: fun-transform Transform)
-(define (fun-transform state env i)
+(define (fun-transform state env i #:phase ph #:prune scopes)
   (match i
     ((Stx (Seq lambda-id
                (Stx (Seq (Id #{ids : (Listof Id)}) ...) var-list-ctx)
                body)
           outer-ctx)
 
-     (unless (bound-identifiers-distinct? ids)
+     (unless (bound-identifiers-distinct? ids #:phase ph)
        (error "expand: lambda requires distinct vars" i))
 
      (define-values (state* new-scope)
@@ -88,13 +99,15 @@
        (CompState-fresh-names state* ids))
 
      (define new-ids : (Listof Id)
-       (for/list ((id ids)) (Id-add-scope id new-scope)))
+       (for/list ((id ids)) (Id-add-scope id new-scope #:phase ph)))
 
      (define state*** : CompState
        (for/fold ((state state**))
                  ((new-id new-ids)
                   (new-name new-names))
-         (CompState-bind-id state new-scope new-id (Binding (Sym-name new-name)))))
+         (CompState-bind-id state new-id (Binding (Sym-name new-name))
+                            #:hint new-scope
+                            #:phase ph)))
 
      (define env* : Env
        (for/fold ((env env))
@@ -103,7 +116,7 @@
          (Env-set env (Sym-name new-name) (VarBinding new-id))))
 
      (define-values (state**** body*)
-       (expand state*** env* (Stx-add-scope body new-scope)))
+       (expand state*** env* (Stx-add-scope body new-scope #:phase ph) #:phase ph #:prune scopes))
 
      ;; Construct the output:
      (values
@@ -119,12 +132,27 @@
       i))))
 
 (: quote-transform Transform)
-(define (quote-transform state env i)
+(define (quote-transform state env i #:phase ph #:prune scopes)
   (match i
     ((Form _ _)
      (values state i))
     (_
      (error "expand: quote requires exactly one subform" i))))
+
+(: prune (-> Stx SetofScopes #:phase Phase Stx))
+(define (prune stx scopes #:phase ph)
+  ;; ISSUE: would a bulk remove-scope be better?
+  (Stx-remove-scopes stx scopes #:phase ph))
+
+(: syntax-transform Transform)
+(define (syntax-transform state env i #:phase ph #:prune scopes)
+  (match i
+    ((Stx (Seq id-stx quoted-stx) ctx)
+     (define pruned-stx (prune quoted-stx scopes #:phase ph))
+     (define pruned-form (Stx (list->Seq (list id-stx pruned-stx)) ctx))
+     (values state pruned-form))
+    (_
+     (error "expand: syntax requires exactly one subform" i))))
 
 (module+ test
   (require
@@ -134,19 +162,23 @@
 
   (define-values (initial-eval-env initial-expand-env initial-state)
     (make-default-initial-state
-     expand quote-transform fun-transform let-syntax-transform))
+     #:expand expand
+     #:quote quote-transform
+     #:syntax syntax-transform
+     #:lambda fun-transform
+     #:let-syntax let-syntax-transform))
 
   (define (check-expand i o)
     (define-values (state expanded)
-      (expand initial-state initial-expand-env (Stx-scan i)))
-    (check Ast-equal? (CompState-parse state expanded) o))
+      (expand initial-state initial-expand-env (Stx-scan i) #:phase 0 #:prune (empty-SetofScopes)))
+    (check Ast-equal? (CompState-parse state expanded #:phase 0) o))
 
   (define (check-re-expand i o)
     (define-values (state expanded)
-      (expand initial-state initial-expand-env (Stx-scan i)))
+      (expand initial-state initial-expand-env (Stx-scan i) #:phase 0 #:prune (empty-SetofScopes)))
     (define-values (state* expanded*)
-      (expand state initial-expand-env expanded))
-    (check Ast-equal? (CompState-parse state* expanded*) o))
+      (expand state initial-expand-env expanded #:phase 0 #:prune (empty-SetofScopes)))
+    (check Ast-equal? (CompState-parse state* expanded* #:phase 0) o))
 
   (check-expand '(lambda (x) x)
                 (Fun (list (Var 'x)) (Var 'x)))

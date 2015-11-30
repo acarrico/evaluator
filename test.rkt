@@ -3,6 +3,7 @@
 (require
  racket/match
  typed/rackunit
+ "scope.rkt"
  "core-lang.rkt"
  "scanner.rkt"
  "env.rkt"
@@ -19,15 +20,19 @@
 
 (define-values (initial-eval-env initial-expand-env initial-state)
   (make-default-initial-state
-   expand quote-transform fun-transform let-syntax-transform))
+   #:expand expand
+   #:quote quote-transform
+   #:syntax syntax-transform
+   #:lambda fun-transform
+   #:let-syntax let-syntax-transform))
 
 ;;; Evaluation
 
 (define (eval i)
   (define-values (state expanded)
-    (expand initial-state initial-expand-env (Stx-scan i)))
+    (expand initial-state initial-expand-env (Stx-scan i) #:phase 0 #:prune (empty-SetofScopes)))
   (define-values (state* result)
-    (Ast-eval (CompState-parse state expanded) initial-eval-env state (empty-Env) #f))
+    (Ast-eval (CompState-parse state expanded #:phase 0) initial-eval-env state (empty-Env) #f #:phase 0))
   result)
 
 (define (check-eval i o)

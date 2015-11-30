@@ -9,9 +9,9 @@
  Ast-eval
  Ast-apply-values)
 
-(: Ast-eval (-> Ast AstEnv CompState Env (U Scope #f) (Values CompState Val)))
+(: Ast-eval (-> Ast AstEnv CompState Env (U Scope #f) #:phase Phase (Values CompState Val)))
 
-(define (Ast-eval ast ast-env state env scope)
+(define (Ast-eval ast ast-env state env scope #:phase ph)
   (match ast
     ((App (list (Closure (Fun (list vars ...) body) ast-env*) args ...))
      (unless (= (length vars) (length args))
@@ -20,14 +20,15 @@
        (for/fold ((state state)
                   (ast-env* ast-env*))
                  ((var vars) (arg args))
-         (define-values (state* arg*) (Ast-eval arg ast-env state env scope))
+         (define-values (state* arg*) (Ast-eval arg ast-env state env scope #:phase ph))
          (values state* (cons (list var arg*) ast-env*))))
-     (Ast-eval body ast-env** state* env scope))
+     (Ast-eval body ast-env** state* env scope #:phase ph))
     ((App (list (PrimOp 'lvalue) arg-ast))
-     (define-values (state* arg) (Ast-eval arg-ast ast-env state env scope))
+     (define-values (state* arg)
+       (Ast-eval arg-ast ast-env state env scope #:phase ph))
      (match arg
        ((Id id)
-        (define name (Binding-name (CompState-resolve-id state* id)))
+        (define name (Binding-name (CompState-resolve-id state* id #:phase ph)))
         (match (Env-ref env name)
           ((ValBinding val) (values state* val))
           (_
@@ -37,8 +38,8 @@
     ((App (list (PrimOp 'lvalue) _ ...))
      (error "lvalue takes one argument"))
     #;((App (list (PrimOp 'lexpand) exp-ast stops-ast))
-     (define-values (state* stx) (Ast-eval exp-ast ast-env state env scope))
-     (define-values (state** stops) (Ast-eval stops-ast ast-env state* env scope))
+     (define-values (state* stx) (Ast-eval exp-ast ast-env state env scope #:phase ph))
+     (define-values (state** stops) (Ast-eval stops-ast ast-env state* env scope #:phase ph))
      (cond ((not (Scope? scope))
             (error "lexpand: not in a macro application"))
            ((not (Stx? stx))
@@ -48,7 +49,7 @@
            (else
             (define i-unmarked (Stx-mark stx scope))
             (define-values (state*** o-unmarked)
-              ((CompState-expand state**) state** (Env-set-stops env state** stops) i-unmarked))
+              ((CompState-expand state**) state** (Env-set-stops env stops #:comp-state state**) i-unmarked))
             (define o-marked (Stx-mark o-unmarked scope))
             (values state*** o-marked))))
     ((App (list (PrimOp 'lexpand) _ ...))
@@ -59,13 +60,13 @@
                   (reverse-arg-vals : (Listof Val) '()))
                  ((arg : Ast args))
          (define-values (#{state* : CompState} #{arg-val : Val})
-           (Ast-eval arg ast-env state env scope))
+           (Ast-eval arg ast-env state env scope #:phase ph))
          (values state* (cons arg-val reverse-arg-vals))))
      (Prim-eval op (reverse reverse-arg-vals) state*))
     ((App (list op-ast args ...))
-     (match/values (Ast-eval op-ast ast-env state env scope)
+     (match/values (Ast-eval op-ast ast-env state env scope #:phase ph)
        ((state* (? (make-predicate (U Closure PrimOp)) op))
-        (Ast-eval (App (cons op args)) ast-env state* env scope))
+        (Ast-eval (App (cons op args)) ast-env state* env scope #:phase ph))
        ((state* op)
         (error "Ast-eval: operator must be a Closure or PrimOp" op))))
     ((Var name)
@@ -110,9 +111,10 @@
     ((_ _)
      (error "Prim-eval bad primitive form" op args))))
 
-(: Ast-apply-values (-> Closure (Listof Val) CompState Env (U Scope #f) (Values CompState Val)))
+(: Ast-apply-values
+   (-> Closure (Listof Val) CompState Env (U Scope #f) #:phase Phase (Values CompState Val)))
 
-(define (Ast-apply-values closure args state env scope)
+(define (Ast-apply-values closure args state env scope #:phase ph)
   ;; NOTE: this does not evaluate the operator or the args.
   (match closure
     ((Closure (Fun (list vars ...) body) ast-env)
@@ -122,7 +124,7 @@
        (for/fold ((ast-env ast-env))
                  ((var vars) (arg args))
          (cons (list var arg) ast-env)))
-     (Ast-eval body ast-env* state env scope))))
+     (Ast-eval body ast-env* state env scope #:phase ph))))
 
 (module+ test
   (require
@@ -132,15 +134,20 @@
    )
 
   (: transform Transform)
-  (define (transform x y z)
+  (define (transform x y z #:phase phase #:prune scopes)
     (error "null transform for eval.rkt tests."))
 
   (define-values (initial-eval-env initial-expand-env initial-state)
-    (make-default-initial-state transform transform transform transform))
+    (make-default-initial-state
+     #:expand transform
+     #:quote transform
+     #:syntax transform
+     #:lambda transform
+     #:let-syntax transform))
 
   (define (check-Ast-eval i o)
     (define-values (state result)
-      (Ast-eval (Ast-scan i) initial-eval-env initial-state (empty-Env) #f))
+      (Ast-eval (Ast-scan i) initial-eval-env initial-state (empty-Env) #f #:phase 0))
     (check-true (equal? result (scan o))))
 
   (check-Ast-eval 'cons

@@ -20,7 +20,9 @@
 (define-type Stops (Seq Id))
 (define Stops? (make-predicate Stops))
 
-(define-type Transform (-> CompState Env Stx (Values CompState Stx)))
+(define-type Transform
+  (-> CompState Env Stx #:phase Phase #:prune SetofScopes
+      (Values CompState Stx)))
 
 (struct Unbound ())
 (struct TransformBinding ((transform : Transform)) #:transparent)
@@ -35,6 +37,8 @@
                    (binding-table : BindingTable)
                    ;; evaluation environment for macro expanders:
                    (eval-env : AstEnv)
+                   ;; expansion environment for macro expanders:
+                   (expand-env : Env)
                    ;; NOTE: The expander function is here primarily to deal
                    ;; with a circular dependency among eval and
                    ;; expand.
@@ -49,23 +53,23 @@
    (struct-copy CompState state (next-fresh (+ index 1)))
    (Scope index)))
 
-(define (CompState-resolve-id (state : CompState) (id : Id)) : Binding
-  (Id-resolve id (CompState-binding-table state)))
+(: CompState-resolve-id
+   (-> CompState Id #:phase Phase Binding))
+(define (CompState-resolve-id state id #:phase ph)
+  (Id-resolve id #:phase ph #:bindings (CompState-binding-table state)))
 
-(define (CompState-bind-id
-         (state : CompState)
-         (hint : Scope)
-         (id : Id)
-         (binding : Binding))
-  : CompState
+(: CompState-bind-id
+   (-> CompState Id Binding #:hint Scope #:phase Phase CompState))
+(define (CompState-bind-id state id binding #:hint hint #:phase ph)
   (define new-binding-table
-    (Id-bind id binding (CompState-binding-table state) hint))
+    (Id-bind (CompState-binding-table state) id binding #:hint hint #:phase ph))
   (struct-copy
    CompState state
    (binding-table new-binding-table)))
 
-(define (CompState-parse (state : CompState) (i : Stx)) : Ast
-  (parse i (CompState-binding-table state)))
+(: CompState-parse (-> CompState Stx #:phase Phase Ast))
+(define (CompState-parse state i #:phase ph)
+  (parse i #:bindings (CompState-binding-table state) #:phase ph))
 
 (define (empty-Env) : Env (Env (hasheq) (seteq)))
 
@@ -83,7 +87,7 @@
   (struct-copy Env env (table new-table)))
 
 (: stop-transform Transform)
-(define (stop-transform state env i)
+(define (stop-transform state env i #:phase phase #:prune scopes)
   (values state i))
 
 (define stop-transform-binding
@@ -94,12 +98,13 @@
       stop-transform-binding
       (hash-ref (Env-table env) binding Unbound)))
 
-(define (Env-set-stops (env : Env) (state : CompState) (stops : Stops)) : Env
+(: Env-set-stops (-> Env Stops #:comp-state CompState #:phase Phase Env))
+(define (Env-set-stops env stops #:comp-state state #:phase ph)
   (define new-Stops : (Setof Symbol)
     (match stops
       ((Seq (Id #{ids : (Listof Id)}) ...)
        (define names : (Listof Symbol)
          (for/list ((id : Id ids))
-           (Binding-name (CompState-resolve-id state id))))
+           (Binding-name (CompState-resolve-id state id #:phase ph))))
        (list->seteq names))))
   (struct-copy Env env (stops new-Stops)))

@@ -25,6 +25,24 @@ follow these steps.
 **Update:** Matthew Flatt's sets of scopes expander has been merged
   into Racket's main branch.
 
+# Session 35 — phase
+
+This sections git tag is *phase*
+
+I'm using more keywords this session. The algorithm needs more
+arguments, and long arbitrarily ordered argument lists are poor style.
+
+Scope sets on syntax are now indexed by phase. The *Transform* type
+now takes *#:phase*. Phase is passed around through the expander,
+parser, and evaluator, so macro transformers can finally use the
+expander itself. The compiler state did carry an *eval-env* for macro
+expanders, and that is joined by an *expand-env*.
+
+While this session is focused on phase, the *Transform* type now takes
+*#:prune*, and a new *syntax-transform* prunes scopes (previously the
+*quote-transform* handled syntax). With the additional transform, the
+*make-default-initial-state* helper also got keywords.
+
 # Session 34 — sets-of-scopes
 
 This section's git tag is *sets-of-scopes*
